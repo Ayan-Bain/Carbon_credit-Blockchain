@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Enums ---
+
+enum CompanyRole {
+  PRODUCER
+  REGULATOR
+  BUYER
+  BOTH
+}
+
+enum BatchStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  LISTED
+  SOLD_OUT
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+// --- Models ---
+
+model Company {
+  id               String       @id @default(uuid())
+  name             String
+  walletAddress    String       @unique // Ethereum address for SIWE [cite: 23, 37]
+  role             CompanyRole  @default(BUYER)
+  kycVerified      Boolean      @default(false)
+  
+  // Relations
+  producedBatches  CreditBatch[] @relation("ProducerRelation")
+  verifiedBatches  CreditBatch[] @relation("RegulatorRelation")
+  listings         CreditListing[]
+  transactions     Transaction[]
+  retirements      RetirementRecord[]
+
+  createdAt        DateTime     @default(now())
+}
+
+model CreditBatch {
+  id                String      @id @default(uuid())
+  onChainBatchId    String?     @unique // uint256 from Smart Contract [cite: 22]
+  producerId        String
+  producer          Company     @relation("ProducerRelation", fields: [producerId], references: [id])
+  status            BatchStatus @default(PENDING)
+  quantity          Int         // Total credit units
+  remainingQuantity Int
+  metadataIPFSHash  String      // Pointer to off-chain docs [cite: 22, 46]
+  
+  submittedAt       DateTime    @default(now())
+  verifiedAt        DateTime?
+  verifiedById      String?
+  verifiedBy        Company?    @relation("RegulatorRelation", fields: [verifiedById], references: [id])
+  txHash            String?     // Blockchain tx hash for audit trail [cite: 22]
+
+  // Relations
+  listings          CreditListing[]
+  retirements       RetirementRecord[]
+}
+
+model CreditListing {
+  id              String      @id @default(uuid())
+  batchId         String
+  batch           CreditBatch @relation(fields: [batchId], references: [id])
+  sellerId        String
+  seller          Company     @relation(fields: [sellerId], references: [id])
+  pricePerUnit    Decimal     @db.Decimal(18, 2)
+  availableUnits  Int
+  listedAt        DateTime    @default(now())
+
+  // Relations
+  transactions    Transaction[]
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  listingId       String
+  listing         CreditListing     @relation(fields: [listingId], references: [id])
+  buyerId         String
+  buyer           Company           @relation(fields: [buyerId], references: [id])
+  unitsPurchased  Int
+  totalPrice      Decimal           @db.Decimal(18, 2)
+  onChainTxHash   String?           // For double-spend verification [cite: 25, 37]
+  status          TransactionStatus @default(PENDING)
+  createdAt       DateTime          @default(now())
+}
+
+model RetirementRecord {
+  id              String      @id @default(uuid())
+  buyerId         String
+  buyer           Company     @relation(fields: [buyerId], references: [id])
+  batchId         String
+  batch           CreditBatch @relation(fields: [batchId], references: [id])
+  unitsRetired    Int
+  purpose         String?     // e.g. "Q1 2026 offset" [cite: 26]
+  retiredAt       DateTime    @default(now())
+  onChainTxHash   String      // Retirement = Burn on-chain [cite: 26, 48]
+}
