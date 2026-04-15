@@ -49,14 +49,24 @@ export class AuthService {
       where: { walletAddress },
     });
 
-    // Create a new company with role BUYER if it doesn't exist
+    // Check if it's the admin
+    const adminAddress = process.env.ADMIN_WALLET_ADDRESS?.toLowerCase();
+    const isLocalAdmin = walletAddress === adminAddress;
+
+    // Create a new company if it doesn't exist
     if (!company) {
       company = await this.prisma.company.create({
         data: {
-          name: 'New Company',
+          name: isLocalAdmin ? 'System Admin' : 'New Company',
           walletAddress,
-          role: CompanyRole.BUYER,
+          role: isLocalAdmin ? CompanyRole.ADMIN : CompanyRole.BUYER,
         },
+      });
+    } else if (isLocalAdmin && company.role !== CompanyRole.ADMIN) {
+      // Auto-upgrade existing record if it matches admin address
+      company = await this.prisma.company.update({
+        where: { id: company.id },
+        data: { role: CompanyRole.ADMIN },
       });
     }
 

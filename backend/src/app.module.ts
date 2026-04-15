@@ -3,9 +3,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { BlockchainSyncModule } from './blockchain-sync/blockchain-sync.module';
 import { CreditsModule } from './credits/credits.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, BlockchainSyncModule, CreditsModule],
+  imports: [PrismaModule, AuthModule, BlockchainSyncModule, CreditsModule, AdminModule],
   controllers: [],
   providers: [],
 })

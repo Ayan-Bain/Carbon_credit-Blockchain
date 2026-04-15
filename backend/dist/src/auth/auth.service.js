@@ -47,13 +47,21 @@ let AuthService = class AuthService {
         let company = await this.prisma.company.findUnique({
             where: { walletAddress },
         });
+        const adminAddress = process.env.ADMIN_WALLET_ADDRESS?.toLowerCase();
+        const isLocalAdmin = walletAddress === adminAddress;
         if (!company) {
             company = await this.prisma.company.create({
                 data: {
-                    name: 'New Company',
+                    name: isLocalAdmin ? 'System Admin' : 'New Company',
                     walletAddress,
-                    role: client_1.CompanyRole.BUYER,
+                    role: isLocalAdmin ? client_1.CompanyRole.ADMIN : client_1.CompanyRole.BUYER,
                 },
+            });
+        }
+        else if (isLocalAdmin && company.role !== client_1.CompanyRole.ADMIN) {
+            company = await this.prisma.company.update({
+                where: { id: company.id },
+                data: { role: client_1.CompanyRole.ADMIN },
             });
         }
         const payload = {

@@ -12,12 +12,13 @@ const prisma_module_1 = require("./prisma/prisma.module");
 const auth_module_1 = require("./auth/auth.module");
 const blockchain_sync_module_1 = require("./blockchain-sync/blockchain-sync.module");
 const credits_module_1 = require("./credits/credits.module");
+const admin_module_1 = require("./admin/admin.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, auth_module_1.AuthModule, blockchain_sync_module_1.BlockchainSyncModule, credits_module_1.CreditsModule],
+        imports: [prisma_module_1.PrismaModule, auth_module_1.AuthModule, blockchain_sync_module_1.BlockchainSyncModule, credits_module_1.CreditsModule, admin_module_1.AdminModule],
         controllers: [],
         providers: [],
     })

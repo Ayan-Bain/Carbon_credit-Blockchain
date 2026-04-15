@@ -19,6 +19,12 @@ export class RolesGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest();
     
+    // Bypass for Default Admin Address (useful for bootstrap/initial setup)
+    const adminAddress = process.env.ADMIN_WALLET_ADDRESS;
+    if (adminAddress && user?.walletAddress?.toLowerCase() === adminAddress.toLowerCase()) {
+      return true;
+    }
+
     return requiredRoles.includes(user?.role);
   }
 }

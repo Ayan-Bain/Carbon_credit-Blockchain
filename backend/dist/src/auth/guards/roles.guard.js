@@ -26,6 +26,10 @@ let RolesGuard = class RolesGuard {
             return true;
         }
         const { user } = context.switchToHttp().getRequest();
+        const adminAddress = process.env.ADMIN_WALLET_ADDRESS;
+        if (adminAddress && user?.walletAddress?.toLowerCase() === adminAddress.toLowerCase()) {
+            return true;
+        }
         return requiredRoles.includes(user?.role);
     }
 };
