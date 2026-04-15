@@ -1,0 +1,329 @@
+# 🌿 Carbon Credit Tracking System
+
+A blockchain-based carbon credit tracking system built as a monorepo. Carbon credit **producers** submit batches of credits, a **regulatory committee** verifies them on-chain, and **buyers** can purchase and retire those credits — all with a tamper-proof audit trail.
+
+---
+
+## 📁 Project Structure
+
+```
+carbon_credit_monorepo/
+├── backend/          # NestJS REST API (off-chain layer)
+│   ├── prisma/       # Prisma ORM schema & migrations
+│   └── src/
+│       ├── admin/            # Regulator verification endpoints
+│       ├── audit/            # Credit lifecycle audit trail
+│       ├── auth/             # SIWE authentication & RBAC guards
+│       ├── blockchain/       # Ethers.js contract interaction service
+│       ├── blockchain-sync/  # On-chain event listener → DB sync
+│       ├── credits/          # Producer credit submission & management
+│       ├── ipfs/             # Pinata IPFS document upload service
+│       ├── market/           # Marketplace listing, buy, retire
+│       └── prisma/           # Prisma client module
+├── blockchain/       # Hardhat smart contracts
+│   ├── contracts/
+│   │   ├── CarbonAccessControl.sol  # Role management (OpenZeppelin)
+│   │   ├── CarbonCreditToken.sol    # ERC-1155 token per credit batch
+│   │   └── CreditRegistry.sol       # Batch submission & verification
+│   └── scripts/
+│       └── deploy.ts                # Contract deployment script
+├── shared/           # Shared DTOs between workspaces
+├── docker-compose.yml
+├── gen-sign.ts       # Utility: generate SIWE signature for testing
+└── package.json      # Yarn/NPM workspaces root
+```
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+Clients (Producer / Regulator / Buyer)
+           │
+           ▼
+    NestJS REST API  ─────────────────────────────────────────────┐
+    (JWT + SIWE Auth, RBAC)                                        │
+           │                                                       │
+           ├── PostgreSQL (read cache, off-chain state)           │
+           ├── IPFS / Pinata (document storage, hash → on-chain)  │
+           └── Ethers.js ──────────────────────────────────────►  │
+                                                                   │
+                          Ethereum / Local Hardhat Node            │
+                          ┌─────────────────────────────┐         │
+                          │  CarbonAccessControl.sol     │         │
+                          │  CarbonCreditToken.sol       │         │
+                          │  CreditRegistry.sol          │         │
+                          └─────────────────────────────┘         │
+                                        │                         │
+                          BlockchainSyncModule (event listener) ──┘
+                          (syncs on-chain events back to PostgreSQL)
+```
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| **ERC-1155 tokens** | Each credit batch is a unique token type (fungible within a batch, distinguishable across batches) |
+| **Hybrid on/off-chain** | Documents stored on IPFS; only the content hash goes on-chain — keeps gas costs low |
+| **Retirement = Burn** | Burning tokens on-chain prevents double-counting of carbon offsets |
+| **Blockchain indexer** | A background service listens to contract events and populates PostgreSQL for fast, filterable API queries |
+| **SIWE Auth** | Wallet signatures replace passwords — identity is Ethereum address-based |
+
+---
+
+## 🔗 Smart Contracts
+
+### `CarbonAccessControl.sol`
+Extends OpenZeppelin's `AccessControl`. Defines three roles:
+- `PRODUCER_ROLE` — Companies that generate carbon credits
+- `REGULATOR_ROLE` — The regulatory committee (also granted to `CreditRegistry` to allow minting)
+- `BUYER_ROLE` — Companies purchasing credits
+- `DEFAULT_ADMIN_ROLE` — Deployer; can grant/revoke all roles
+
+### `CarbonCreditToken.sol`
+An **ERC-1155** token contract. Each credit batch minted corresponds to a unique `tokenId` (the on-chain `batchId`). Only addresses with `REGULATOR_ROLE` can call `mint()`.
+
+### `CreditRegistry.sol`
+The core registry for credit batches:
+- `submitBatch(metadataHash)` — Called by producers; stores IPFS hash on-chain and emits `BatchSubmitted`
+- `verifyBatch(batchId, quantity)` — Called by regulators; verifies the batch and mints ERC-1155 tokens to the producer, emits `BatchVerified`
+
+---
+
+## 🖥️ Backend Modules
+
+| Module | Responsibility |
+|---|---|
+| `AuthModule` | SIWE nonce generation, wallet signature login, JWT issuance, RBAC decorators & guards |
+| `CreditsModule` | Producer batch submission (uploads doc to IPFS → calls `submitBatch` on-chain) |
+| `AdminModule` | Regulator: list pending batches, verify or reject |
+| `MarketModule` | Create listings, browse marketplace, execute purchases |
+| `AuditModule` | Full event history for a batch or company |
+| `BlockchainSyncModule` | Background service: listens to `BatchSubmitted` / `BatchVerified` events → updates PostgreSQL |
+| `IpfsModule` | Wraps Pinata API for document upload; returns IPFS hash |
+| `PrismaModule` | Database client, global across all modules |
+
+---
+
+## 🗄️ Database Models (PostgreSQL via Prisma)
+
+- **`Company`** — Registered entities with wallet address and role (`PRODUCER`, `REGULATOR`, `BUYER`, `BOTH`, `ADMIN`)
+- **`CreditBatch`** — Tracks batch lifecycle (`PENDING → VERIFIED/REJECTED → LISTED → SOLD_OUT`) + IPFS hash + on-chain batch ID
+- **`CreditListing`** — A verified batch listed for sale with price per unit
+- **`Transaction`** — Records each purchase with on-chain tx hash for double-spend verification
+- **`RetirementRecord`** — Permanently retired credits with on-chain burn tx hash
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) v20+
+- [Docker](https://www.docker.com/) & Docker Compose
+- [Hardhat](https://hardhat.org/) (installed via workspace)
+
+### 1. Clone & Install
+
+```bash
+git clone <repo-url>
+cd carbon_credit_monorepo
+npm install
+```
+
+### 2. Start Infrastructure (PostgreSQL + Redis)
+
+```bash
+docker-compose up -d
+```
+
+This starts:
+- **PostgreSQL** on `localhost:5432` (DB: `carbon_db`)
+- **Redis** on `localhost:6379`
+
+### 3. Start the Local Blockchain
+
+In a separate terminal:
+
+```bash
+cd blockchain
+npx hardhat node
+```
+
+### 4. Deploy Smart Contracts
+
+```bash
+cd blockchain
+npx hardhat run scripts/deploy.ts --network localhost
+```
+
+Copy the printed contract addresses and update `backend/.env`:
+
+```
+REGISTRY_ADDRESS=<printed CreditRegistry address>
+ACCESS_CONTROL_ADDRESS=<printed CarbonAccessControl address>
+```
+
+### 5. Configure the Backend
+
+Copy and edit the env file:
+
+```bash
+cp backend/.env.example backend/.env   # or edit backend/.env directly
+```
+
+Required variables:
+
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/carbon_db?schema=public"
+RPC_URL="http://127.0.0.1:8545"
+REGISTRY_ADDRESS="<from deploy output>"
+ACCESS_CONTROL_ADDRESS="<from deploy output>"
+JWT_SECRET="<your-secret>"
+PINATA_API_KEY="<your-pinata-key>"
+PINATA_API_SECRET="<your-pinata-secret>"
+ADMIN_PRIVATE_KEY="<deployer private key>"
+ADMIN_WALLET_ADDRESS="<deployer wallet address>"
+```
+
+### 6. Run Database Migrations
+
+```bash
+cd backend
+npx prisma migrate dev
+```
+
+### 7. Start the Backend
+
+```bash
+cd backend
+npm run start:dev
+```
+
+The API will be available at `http://localhost:3000`.
+
+---
+
+## 🔌 API Endpoints
+
+Full documentation: [`API_DOCUMENTATION.md`](./API_DOCUMENTATION.md)
+
+### Authentication
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/auth/nonce` | Generate SIWE session nonce | Public |
+| POST | `/auth/register` | Register company (name, walletAddress, role) | Public |
+| POST | `/auth/login` | Sign in with wallet signature → returns JWT | Public |
+
+### Credits (Producer)
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/credits/batches` | Submit new credit batch (with document upload) | `PRODUCER` |
+| GET | `/credits/batches` | List own batches | `PRODUCER` |
+| GET | `/credits/batches/:id` | Get batch details | Authenticated |
+| POST | `/credits/retire` | Retire owned credits (on-chain burn) | `BUYER` |
+
+### Regulation (Regulator / Admin)
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/admin/batches/pending` | List all pending batches | `REGULATOR` |
+| POST | `/admin/batches/:id/verify` | Approve batch & mint tokens | `REGULATOR` |
+| POST | `/admin/batches/:id/reject` | Reject a batch | `REGULATOR` |
+
+### Marketplace (Buyer)
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/market/listings` | List verified credits for sale | `PRODUCER` |
+| GET | `/market/listings` | Browse available listings | Public |
+| POST | `/market/listings/:id/buy` | Purchase credits | Authenticated |
+
+### Audit
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/audit/batch/:id` | Full lifecycle history of a credit batch | Public |
+| GET | `/audit/company/:id` | All transactions for a company | Public |
+
+---
+
+## 🔄 Credit Lifecycle
+
+```
+[Producer] POST /credits/batches
+    → Upload document to IPFS → get metadataHash
+    → Call submitBatch(metadataHash) on CreditRegistry
+    → DB: CreditBatch { status: PENDING }
+                ↓
+[Regulator] POST /admin/batches/:id/verify
+    → Call verifyBatch(batchId, quantity) on CreditRegistry
+    → CreditRegistry mints ERC-1155 tokens to producer
+    → DB: CreditBatch { status: VERIFIED }
+                ↓
+[Producer] POST /market/listings
+    → DB: CreditListing created
+    → DB: CreditBatch { status: LISTED }
+                ↓
+[Buyer] POST /market/listings/:id/buy
+    → DB: Transaction recorded
+    → DB: listing.availableUnits decremented
+                ↓
+[Buyer] POST /credits/retire
+    → Call retireCredits on-chain (tokens burned)
+    → DB: RetirementRecord saved with burn txHash
+```
+
+---
+
+## 🔧 Development Scripts
+
+### Root
+```bash
+npm install         # Install all workspace dependencies
+```
+
+### Backend (`cd backend`)
+```bash
+npm run start:dev   # Start in watch mode
+npm run build       # Compile to dist/
+npm run start:prod  # Run compiled server
+npm run lint        # Lint & auto-fix
+npm run test        # Run unit tests
+npm run test:cov    # Run tests with coverage
+npx prisma studio   # Open Prisma DB browser
+npx prisma migrate dev  # Run & apply new migrations
+```
+
+### Blockchain (`cd blockchain`)
+```bash
+npx hardhat node                                          # Start local node
+npx hardhat run scripts/deploy.ts --network localhost     # Deploy contracts
+npx hardhat compile                                       # Compile contracts
+```
+
+---
+
+## 🛡️ Security Notes
+
+- **Never commit `backend/.env`** — it contains private keys and API secrets. It is `.gitignore`d.
+- The `ADMIN_PRIVATE_KEY` in `.env` is the Hardhat default test account key — **replace before any non-local deployment**.
+- All regulator and admin actions are double-enforced: once at the API level (JWT + RBAC guard) and once at the smart contract level (role modifier).
+- Credit retirement is irreversible on-chain — burned tokens cannot be recovered.
+
+---
+
+## 📦 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Solidity 0.8.24, Hardhat, OpenZeppelin |
+| Backend Framework | NestJS (TypeScript) |
+| Auth | JWT + Sign-In with Ethereum (SIWE) |
+| Database | PostgreSQL 15 + Prisma ORM |
+| Blockchain Client | Ethers.js v6 |
+| Document Storage | IPFS via Pinata |
+| Infrastructure | Docker Compose (Postgres + Redis) |
+
+---
+
+## 📄 License
+
+UNLICENSED — Private project.
