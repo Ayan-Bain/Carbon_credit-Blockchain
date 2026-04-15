@@ -6,20 +6,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppModule = void 0;
+exports.BlockchainSyncModule = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_module_1 = require("./prisma/prisma.module");
-const auth_module_1 = require("./auth/auth.module");
-const blockchain_sync_module_1 = require("./blockchain-sync/blockchain-sync.module");
-const credits_module_1 = require("./credits/credits.module");
-let AppModule = class AppModule {
+const indexer_service_1 = require("./indexer.service");
+const prisma_module_1 = require("../prisma/prisma.module");
+let BlockchainSyncModule = class BlockchainSyncModule {
 };
-exports.AppModule = AppModule;
-exports.AppModule = AppModule = __decorate([
+exports.BlockchainSyncModule = BlockchainSyncModule;
+exports.BlockchainSyncModule = BlockchainSyncModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, auth_module_1.AuthModule, blockchain_sync_module_1.BlockchainSyncModule, credits_module_1.CreditsModule],
-        controllers: [],
-        providers: [],
+        imports: [prisma_module_1.PrismaModule],
+        providers: [indexer_service_1.IndexerService],
+        exports: [indexer_service_1.IndexerService],
     })
-], AppModule);
-//# sourceMappingURL=app.module.js.map
+], BlockchainSyncModule);
+//# sourceMappingURL=blockchain-sync.module.js.map

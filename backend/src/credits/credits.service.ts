@@ -13,14 +13,25 @@ export class CreditsService {
   ) {}
 
   async submitBatch(producerId: string, file: Express.Multer.File, metadata: any) {
-    // 1. Upload to IPFS
-    const cid = await this.ipfsService.uploadFile(file);
+    // 1. Upload the main document (e.g., certificate image) to IPFS
+    const fileCid = await this.ipfsService.uploadFile(file);
 
-    // 2. Create record in DB
+    // 2. Wrap the file CID and other metadata into a JSON and upload that to IPFS
+    // This JSON CID will be the "metadataHash" stored on-chain
+    const metadataJson = {
+      ...metadata,
+      assetCid: fileCid,
+      producerId: producerId,
+      timestamp: new Date().toISOString(),
+    };
+    
+    const metadataCid = await this.ipfsService.uploadJson(metadataJson);
+
+    // 3. Create record in DB
     const batch = await this.prisma.creditBatch.create({
       data: {
         producerId: producerId,
-        metadataIPFSHash: cid,
+        metadataIPFSHash: metadataCid, // Final metadata hash
         quantity: 0,
         remainingQuantity: 0,
         status: 'PENDING',
@@ -29,8 +40,9 @@ export class CreditsService {
 
     return {
       batch,
-      ipfsHash: cid,
-      message: 'Batch uploaded to IPFS. Please submit to blockchain with this hash.',
+      metadataHash: metadataCid,
+      assetHash: fileCid,
+      message: 'Product metadata generated and uploaded to IPFS. Use the metadataHash for smart contract submission.',
     };
   }
 
