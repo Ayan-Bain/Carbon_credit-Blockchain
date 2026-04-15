@@ -4,8 +4,12 @@ const axios = require('axios');
 
 // Use command-line arguments or defaults
 const args = process.argv.slice(2);
-const PRIVATE_KEY = args[0] || '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
-const NONCE = args[1] || 'MrG8hRBrrjrpJu0Du';
+const PRIVATE_KEY = args[0];
+const NONCE = args[1];
+if(PRIVATE_KEY==null || NONCE==null) {
+    console.log('Usage: node gen-sign.ts <private_key> <nonce>');
+    process.exit(1);
+}
 
 if (!args[0]) {
     console.log('Usage: node gen-sign.ts <private_key> <nonce>');
