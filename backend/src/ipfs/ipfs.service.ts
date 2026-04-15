@@ -1,4 +1,6 @@
+/// <reference types="multer" />
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+
 import axios from 'axios';
 import * as FormData from 'form-data';
 
