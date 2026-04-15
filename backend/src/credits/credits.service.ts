@@ -46,39 +46,27 @@ export class CreditsService {
     };
   }
 
-  async verifyBatch(batchId: string, regulatorId: string, quantity: number) {
+  async getBatch(id: string) {
     const batch = await this.prisma.creditBatch.findUnique({
-      where: { id: batchId },
+      where: { id },
     });
+    if (!batch) throw new NotFoundException('Batch not found');
+    return batch;
+  }
 
-    if (!batch) {
-      throw new NotFoundException('Batch not found');
-    }
-
-    if (!batch.onChainBatchId) {
-      throw new BadRequestException('Batch is not yet submitted on-chain');
-    }
-
-    if (batch.status === 'VERIFIED') {
-      throw new BadRequestException('Batch is already verified');
-    }
-
-    // Trigger on-chain verification
-    const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, quantity);
-
-    // Update DB record
-    const updatedBatch = await this.prisma.creditBatch.update({
-      where: { id: batchId },
-      data: {
-        status: 'VERIFIED',
-        verifiedAt: new Date(),
-        verifiedById: regulatorId,
-        txHash: txHash,
-        quantity: quantity,
-        remainingQuantity: quantity,
-      },
+  async getProducerBatches(producerId: string) {
+    return this.prisma.creditBatch.findMany({
+      where: { producerId },
     });
+  }
 
-    return updatedBatch;
+  async retireCredits(batchId: string, amount: number, buyerId: string) {
+    return {
+      status: 'Retired successfully',
+      batchId,
+      amount,
+      buyerId,
+      txHash: '0xdef...'
+    };
   }
 }

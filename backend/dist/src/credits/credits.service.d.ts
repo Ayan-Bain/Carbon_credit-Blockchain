@@ -24,7 +24,7 @@ export declare class CreditsService {
         assetHash: string;
         message: string;
     }>;
-    verifyBatch(batchId: string, regulatorId: string, quantity: number): Promise<{
+    getBatch(id: string): Promise<{
         id: string;
         onChainBatchId: string | null;
         producerId: string;
@@ -36,5 +36,25 @@ export declare class CreditsService {
         verifiedAt: Date | null;
         verifiedById: string | null;
         txHash: string | null;
+    }>;
+    getProducerBatches(producerId: string): Promise<{
+        id: string;
+        onChainBatchId: string | null;
+        producerId: string;
+        status: import(".prisma/client").$Enums.BatchStatus;
+        quantity: number;
+        remainingQuantity: number;
+        metadataIPFSHash: string;
+        submittedAt: Date;
+        verifiedAt: Date | null;
+        verifiedById: string | null;
+        txHash: string | null;
+    }[]>;
+    retireCredits(batchId: string, amount: number, buyerId: string): Promise<{
+        status: string;
+        batchId: string;
+        amount: number;
+        buyerId: string;
+        txHash: string;
     }>;
 }

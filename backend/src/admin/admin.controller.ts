@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Param, Req } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -15,5 +15,27 @@ export class AdminController {
   @Roles(CompanyRole.REGULATOR, CompanyRole.ADMIN) // Allow both
   async updateRole(@Body() updateRoleDto: UpdateRoleDto) {
     return this.adminService.updateRole(updateRoleDto);
+  }
+
+  @Get('batches/pending')
+  @Roles(CompanyRole.REGULATOR)
+  async getPendingBatches() {
+    return this.adminService.getPendingBatches();
+  }
+
+  @Post('batches/:id/verify')
+  @Roles(CompanyRole.REGULATOR)
+  async verifyBatch(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { quantity: number },
+  ) {
+    return this.adminService.verifyBatch(id, req.user.id, body.quantity);
+  }
+
+  @Post('batches/:id/reject')
+  @Roles(CompanyRole.REGULATOR)
+  async rejectBatch(@Req() req: any, @Param('id') id: string) {
+    return this.adminService.rejectBatch(id, req.user.id);
   }
 }

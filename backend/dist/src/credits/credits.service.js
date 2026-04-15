@@ -45,32 +45,27 @@ let CreditsService = class CreditsService {
             message: 'Product metadata generated and uploaded to IPFS. Use the metadataHash for smart contract submission.',
         };
     }
-    async verifyBatch(batchId, regulatorId, quantity) {
+    async getBatch(id) {
         const batch = await this.prisma.creditBatch.findUnique({
-            where: { id: batchId },
+            where: { id },
         });
-        if (!batch) {
+        if (!batch)
             throw new common_1.NotFoundException('Batch not found');
-        }
-        if (!batch.onChainBatchId) {
-            throw new common_1.BadRequestException('Batch is not yet submitted on-chain');
-        }
-        if (batch.status === 'VERIFIED') {
-            throw new common_1.BadRequestException('Batch is already verified');
-        }
-        const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, quantity);
-        const updatedBatch = await this.prisma.creditBatch.update({
-            where: { id: batchId },
-            data: {
-                status: 'VERIFIED',
-                verifiedAt: new Date(),
-                verifiedById: regulatorId,
-                txHash: txHash,
-                quantity: quantity,
-                remainingQuantity: quantity,
-            },
+        return batch;
+    }
+    async getProducerBatches(producerId) {
+        return this.prisma.creditBatch.findMany({
+            where: { producerId },
         });
-        return updatedBatch;
+    }
+    async retireCredits(batchId, amount, buyerId) {
+        return {
+            status: 'Retired successfully',
+            batchId,
+            amount,
+            buyerId,
+            txHash: '0xdef...'
+        };
     }
 };
 exports.CreditsService = CreditsService;

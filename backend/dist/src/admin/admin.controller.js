@@ -27,6 +27,15 @@ let AdminController = class AdminController {
     async updateRole(updateRoleDto) {
         return this.adminService.updateRole(updateRoleDto);
     }
+    async getPendingBatches() {
+        return this.adminService.getPendingBatches();
+    }
+    async verifyBatch(req, id, body) {
+        return this.adminService.verifyBatch(id, req.user.id, body.quantity);
+    }
+    async rejectBatch(req, id) {
+        return this.adminService.rejectBatch(id, req.user.id);
+    }
 };
 exports.AdminController = AdminController;
 __decorate([
@@ -37,6 +46,32 @@ __decorate([
     __metadata("design:paramtypes", [update_role_dto_1.UpdateRoleDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "updateRole", null);
+__decorate([
+    (0, common_1.Get)('batches/pending'),
+    (0, roles_decorator_1.Roles)(client_1.CompanyRole.REGULATOR),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getPendingBatches", null);
+__decorate([
+    (0, common_1.Post)('batches/:id/verify'),
+    (0, roles_decorator_1.Roles)(client_1.CompanyRole.REGULATOR),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "verifyBatch", null);
+__decorate([
+    (0, common_1.Post)('batches/:id/reject'),
+    (0, roles_decorator_1.Roles)(client_1.CompanyRole.REGULATOR),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "rejectBatch", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

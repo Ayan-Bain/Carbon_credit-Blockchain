@@ -19,6 +19,24 @@ export class AuthService {
     return nonce;
   }
 
+  async register(name: string, walletAddress: string, role?: CompanyRole) {
+    const address = walletAddress.toLowerCase();
+    let company = await this.prisma.company.findUnique({
+      where: { walletAddress: address },
+    });
+    if (company) {
+      throw new UnauthorizedException('Company already registered');
+    }
+    
+    return this.prisma.company.create({
+      data: {
+        name,
+        walletAddress: address,
+        role: role || CompanyRole.BUYER,
+      },
+    });
+  }
+
   async verifySiwe(message: string, signature: string) {
     let siweMessage;
     try {

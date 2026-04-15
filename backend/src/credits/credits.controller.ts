@@ -1,6 +1,7 @@
 import { 
   Controller, 
   Post, 
+  Get,
   Body, 
   Param, 
   UseGuards, 
@@ -32,14 +33,20 @@ export class CreditsController {
     return this.creditsService.submitBatch(req.user.id, file, metadata);
   }
 
-  @Post('admin/batches/:id/verify')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(CompanyRole.REGULATOR)
-  async verifyBatch(
-    @Req() req: any,
-    @Param('id') id: string,
-    @Body() verifyDto: VerifyBatchDto,
-  ) {
-    return this.creditsService.verifyBatch(id, req.user.id, verifyDto.quantity);
+  @Get('credits/batches')
+  @UseGuards(JwtAuthGuard)
+  async getOwnBatches(@Req() req: any) {
+    return this.creditsService.getProducerBatches(req.user.id);
+  }
+
+  @Get('credits/batches/:id')
+  async getBatchDetails(@Param('id') id: string) {
+    return this.creditsService.getBatch(id);
+  }
+
+  @Post('credits/retire')
+  @UseGuards(JwtAuthGuard)
+  async retireCredits(@Req() req: any, @Body() body: { batchId: string; amount: number }) {
+    return this.creditsService.retireCredits(body.batchId, body.amount, req.user.id);
   }
 }

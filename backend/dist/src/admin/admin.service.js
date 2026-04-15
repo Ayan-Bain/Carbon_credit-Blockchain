@@ -36,6 +36,40 @@ let AdminService = class AdminService {
             txHash,
         };
     }
+    async getPendingBatches() {
+        return this.prisma.creditBatch.findMany({
+            where: { status: 'PENDING' },
+        });
+    }
+    async verifyBatch(batchId, regulatorId, quantity) {
+        const batch = await this.prisma.creditBatch.findUnique({
+            where: { id: batchId },
+        });
+        if (!batch)
+            throw new common_1.NotFoundException('Batch not found');
+        const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, quantity);
+        return this.prisma.creditBatch.update({
+            where: { id: batchId },
+            data: {
+                status: 'VERIFIED',
+                verifiedAt: new Date(),
+                verifiedById: regulatorId,
+                txHash: txHash,
+                quantity: quantity,
+                remainingQuantity: quantity,
+            },
+        });
+    }
+    async rejectBatch(batchId, regulatorId) {
+        return this.prisma.creditBatch.update({
+            where: { id: batchId },
+            data: {
+                status: 'REJECTED',
+                verifiedAt: new Date(),
+                verifiedById: regulatorId,
+            },
+        });
+    }
 };
 exports.AdminService = AdminService;
 exports.AdminService = AdminService = __decorate([

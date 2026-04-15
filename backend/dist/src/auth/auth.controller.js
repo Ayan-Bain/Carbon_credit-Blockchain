@@ -23,7 +23,10 @@ let AuthController = class AuthController {
     getNonce() {
         return { nonce: this.authService.generateNonce() };
     }
-    async verify(body) {
+    async register(body) {
+        return this.authService.register(body.name, body.walletAddress, body.role);
+    }
+    async login(body) {
         return this.authService.verifySiwe(body.message, body.signature);
     }
 };
@@ -35,13 +38,20 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "getNonce", null);
 __decorate([
-    (0, common_1.Post)('verify'),
+    (0, common_1.Post)('register'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "register", null);
+__decorate([
+    (0, common_1.Post)('login'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [verify_siwe_dto_1.VerifySiweDto]),
     __metadata("design:returntype", Promise)
-], AuthController.prototype, "verify", null);
+], AuthController.prototype, "login", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

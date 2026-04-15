@@ -1,5 +1,4 @@
 import { CreditsService } from './credits.service';
-import { VerifyBatchDto } from './dto/verify-batch.dto';
 export declare class CreditsController {
     private readonly creditsService;
     constructor(creditsService: CreditsService);
@@ -21,7 +20,7 @@ export declare class CreditsController {
         assetHash: string;
         message: string;
     }>;
-    verifyBatch(req: any, id: string, verifyDto: VerifyBatchDto): Promise<{
+    getOwnBatches(req: any): Promise<{
         id: string;
         onChainBatchId: string | null;
         producerId: string;
@@ -33,5 +32,28 @@ export declare class CreditsController {
         verifiedAt: Date | null;
         verifiedById: string | null;
         txHash: string | null;
+    }[]>;
+    getBatchDetails(id: string): Promise<{
+        id: string;
+        onChainBatchId: string | null;
+        producerId: string;
+        status: import(".prisma/client").$Enums.BatchStatus;
+        quantity: number;
+        remainingQuantity: number;
+        metadataIPFSHash: string;
+        submittedAt: Date;
+        verifiedAt: Date | null;
+        verifiedById: string | null;
+        txHash: string | null;
+    }>;
+    retireCredits(req: any, body: {
+        batchId: string;
+        amount: number;
+    }): Promise<{
+        status: string;
+        batchId: string;
+        amount: number;
+        buyerId: string;
+        txHash: string;
     }>;
 }

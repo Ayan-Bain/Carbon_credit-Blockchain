@@ -20,7 +20,6 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const client_1 = require("@prisma/client");
-const verify_batch_dto_1 = require("./dto/verify-batch.dto");
 let CreditsController = class CreditsController {
     constructor(creditsService) {
         this.creditsService = creditsService;
@@ -28,8 +27,14 @@ let CreditsController = class CreditsController {
     async submitBatch(req, file, metadata) {
         return this.creditsService.submitBatch(req.user.id, file, metadata);
     }
-    async verifyBatch(req, id, verifyDto) {
-        return this.creditsService.verifyBatch(id, req.user.id, verifyDto.quantity);
+    async getOwnBatches(req) {
+        return this.creditsService.getProducerBatches(req.user.id);
+    }
+    async getBatchDetails(id) {
+        return this.creditsService.getBatch(id);
+    }
+    async retireCredits(req, body) {
+        return this.creditsService.retireCredits(body.batchId, body.amount, req.user.id);
     }
 };
 exports.CreditsController = CreditsController;
@@ -46,16 +51,29 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CreditsController.prototype, "submitBatch", null);
 __decorate([
-    (0, common_1.Post)('admin/batches/:id/verify'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)(client_1.CompanyRole.REGULATOR),
+    (0, common_1.Get)('credits/batches'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Param)('id')),
-    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, verify_batch_dto_1.VerifyBatchDto]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
-], CreditsController.prototype, "verifyBatch", null);
+], CreditsController.prototype, "getOwnBatches", null);
+__decorate([
+    (0, common_1.Get)('credits/batches/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CreditsController.prototype, "getBatchDetails", null);
+__decorate([
+    (0, common_1.Post)('credits/retire'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], CreditsController.prototype, "retireCredits", null);
 exports.CreditsController = CreditsController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [credits_service_1.CreditsService])

@@ -37,4 +37,42 @@ export class AdminService {
       txHash,
     };
   }
+
+  async getPendingBatches() {
+    return this.prisma.creditBatch.findMany({
+      where: { status: 'PENDING' },
+    });
+  }
+
+  async verifyBatch(batchId: string, regulatorId: string, quantity: number) {
+    const batch = await this.prisma.creditBatch.findUnique({
+      where: { id: batchId },
+    });
+    if (!batch) throw new NotFoundException('Batch not found');
+
+    const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, quantity);
+
+    return this.prisma.creditBatch.update({
+      where: { id: batchId },
+      data: {
+        status: 'VERIFIED',
+        verifiedAt: new Date(),
+        verifiedById: regulatorId,
+        txHash: txHash,
+        quantity: quantity,
+        remainingQuantity: quantity,
+      },
+    });
+  }
+
+  async rejectBatch(batchId: string, regulatorId: string) {
+    return this.prisma.creditBatch.update({
+      where: { id: batchId },
+      data: {
+        status: 'REJECTED',
+        verifiedAt: new Date(),
+        verifiedById: regulatorId,
+      },
+    });
+  }
 }
