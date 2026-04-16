@@ -7,12 +7,15 @@ set "BACKEND_DIR=%ROOT_DIR%\backend"
 
 cd /d "%BACKEND_DIR%"
 
+echo %BACKEND_DIR%
+
 echo Starting Prisma Studio in this terminal...
+
+start "NestJS Backend" /b cmd /c "cd /d ""%BACKEND_DIR%"" && npm run start:dev"
+
 start "Prisma Studio" /b cmd /c "cd /d ""%BACKEND_DIR%"" && npx prisma studio"
 
 echo Starting Nest backend in watch mode...
 echo Prisma Studio logs and Nest logs will appear in this same window.
 echo Prisma Studio default URL: http://localhost:5555
 echo.
-
-npm run start:dev
