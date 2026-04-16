@@ -8,10 +8,9 @@ export class BlockchainService implements OnModuleInit {
   private wallet: ethers.Wallet;
   private accessControlContract: ethers.Contract;
   private registryContract: ethers.Contract;
-
-  private readonly ACCESS_CONTROL_ADDRESS = process.env.ACCESS_CONTROL_ADDRESS;
+  private accessControlAddress: string;
   private readonly RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545';
-  private readonly REGISTRY_ADDRESS = process.env.REGISTRY_ADDRESS;
+  private registryAddress: string;
   private readonly PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY; // Regulator/Admin private key
 
   private readonly REGISTRY_ABI = [
@@ -35,22 +34,25 @@ export class BlockchainService implements OnModuleInit {
   ];
 
   async onModuleInit() {
-    if (!this.REGISTRY_ADDRESS || !this.PRIVATE_KEY || !this.ACCESS_CONTROL_ADDRESS) {
+    if (!process.env.REGISTRY_ADDRESS || !this.PRIVATE_KEY || !process.env.ACCESS_CONTROL_ADDRESS) {
       this.logger.warn('Blockchain credentials missing (Registry, AccessControl, or PK). Some functions will fail.');
       return;
     }
+
+    this.registryAddress = this.normalizeAddress(process.env.REGISTRY_ADDRESS, 'REGISTRY_ADDRESS');
+    this.accessControlAddress = this.normalizeAddress(process.env.ACCESS_CONTROL_ADDRESS, 'ACCESS_CONTROL_ADDRESS');
 
     this.provider = new ethers.JsonRpcProvider(this.RPC_URL);
     this.wallet = new ethers.Wallet(this.PRIVATE_KEY, this.provider);
     
     this.registryContract = new ethers.Contract(
-      this.REGISTRY_ADDRESS,
+      this.registryAddress,
       this.REGISTRY_ABI,
       this.wallet,
     );
 
     this.accessControlContract = new ethers.Contract(
-      this.ACCESS_CONTROL_ADDRESS,
+      this.accessControlAddress,
       this.ACCESS_CONTROL_ABI,
       this.wallet,
     );
@@ -78,13 +80,11 @@ export class BlockchainService implements OnModuleInit {
 
   async retireCredits(onChainBatchId: string, walletAddress: string, amount: number) {
     this.ensureContractsReady();
-    this.logger.log(`Invoking retireCredits for ID ${onChainBatchId}, wallet ${walletAddress}, amount ${amount}`);
+    const normalizedWalletAddress = this.normalizeAddress(walletAddress, 'buyer wallet');
+    this.logger.log(`Invoking retireCredits for ID ${onChainBatchId}, wallet ${normalizedWalletAddress}, amount ${amount}`);
 
     if (!onChainBatchId) {
       throw new Error(`retireCredits called with invalid onChainBatchId: ${onChainBatchId}`);
-    }
-    if (!walletAddress) {
-      throw new Error(`retireCredits called with invalid walletAddress: ${walletAddress}`);
     }
     if (!amount || amount <= 0) {
       throw new Error(`retireCredits called with invalid amount: ${amount}`);
@@ -92,7 +92,7 @@ export class BlockchainService implements OnModuleInit {
 
     const tx = await this.registryContract.retireCredits(
       BigInt(onChainBatchId),
-      walletAddress,
+      normalizedWalletAddress,
       BigInt(amount),
     );
     this.logger.log(`Retirement transaction sent: ${tx.hash}`);
@@ -102,18 +102,14 @@ export class BlockchainService implements OnModuleInit {
 
   async transferCredits(onChainBatchId: string, fromWalletAddress: string, toWalletAddress: string, amount: number) {
     this.ensureContractsReady();
+    const normalizedFromAddress = this.normalizeAddress(fromWalletAddress, 'seller wallet');
+    const normalizedToAddress = this.normalizeAddress(toWalletAddress, 'buyer wallet');
     this.logger.log(
-      `Invoking transferCredits for ID ${onChainBatchId}, from ${fromWalletAddress}, to ${toWalletAddress}, amount ${amount}`,
+      `Invoking transferCredits for ID ${onChainBatchId}, from ${normalizedFromAddress}, to ${normalizedToAddress}, amount ${amount}`,
     );
 
     if (!onChainBatchId) {
       throw new Error(`transferCredits called with invalid onChainBatchId: ${onChainBatchId}`);
-    }
-    if (!fromWalletAddress) {
-      throw new Error(`transferCredits called with invalid fromWalletAddress: ${fromWalletAddress}`);
-    }
-    if (!toWalletAddress) {
-      throw new Error(`transferCredits called with invalid toWalletAddress: ${toWalletAddress}`);
     }
     if (!amount || amount <= 0) {
       throw new Error(`transferCredits called with invalid amount: ${amount}`);
@@ -121,8 +117,8 @@ export class BlockchainService implements OnModuleInit {
 
     const tx = await this.registryContract.transferCredits(
       BigInt(onChainBatchId),
-      fromWalletAddress,
-      toWalletAddress,
+      normalizedFromAddress,
+      normalizedToAddress,
       BigInt(amount),
     );
     this.logger.log(`Transfer transaction sent: ${tx.hash}`);
@@ -162,5 +158,15 @@ export class BlockchainService implements OnModuleInit {
     if (!this.registryContract || !this.accessControlContract) {
       throw new Error('Blockchain contracts are not initialized. Check REGISTRY_ADDRESS, ACCESS_CONTROL_ADDRESS, and ADMIN_PRIVATE_KEY.');
     }
+  }
+
+  private normalizeAddress(value: string | undefined, label: string) {
+    const trimmed = value?.trim().replace(/^['"]|['"]$/g, '');
+
+    if (!trimmed || !ethers.isAddress(trimmed)) {
+      throw new Error(`Invalid ${label}: ${value}`);
+    }
+
+    return ethers.getAddress(trimmed);
   }
 }

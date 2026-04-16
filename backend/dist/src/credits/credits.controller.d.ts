@@ -76,11 +76,11 @@ export declare class CreditsController {
         retirement: {
             id: string;
             batchId: string;
-            buyerId: string;
-            onChainTxHash: string;
             unitsRetired: number;
+            buyerId: string;
             purpose: string | null;
             retiredAt: Date;
+            onChainTxHash: string;
         };
     }>;
 }

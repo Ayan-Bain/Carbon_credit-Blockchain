@@ -31,10 +31,11 @@ let IndexerService = IndexerService_1 = class IndexerService {
             return;
         }
         try {
+            this.registryAddress = this.normalizeAddress(this.REGISTRY_ADDRESS, 'REGISTRY_ADDRESS');
             this.provider = new ethers_1.ethers.JsonRpcProvider(this.RPC_URL);
-            this.registryContract = new ethers_1.ethers.Contract(this.REGISTRY_ADDRESS, this.REGISTRY_ABI, this.provider);
+            this.registryContract = new ethers_1.ethers.Contract(this.registryAddress, this.REGISTRY_ABI, this.provider);
             this.setupEventListeners();
-            this.logger.log(`Blockchain Indexer started. Listening at ${this.REGISTRY_ADDRESS}`);
+            this.logger.log(`Blockchain Indexer started. Listening at ${this.registryAddress}`);
         }
         catch (error) {
             this.logger.error(`Failed to initialize Indexer: ${error.message}`);
@@ -104,6 +105,13 @@ let IndexerService = IndexerService_1 = class IndexerService {
                 await new Promise((res) => setTimeout(res, 2000));
             }
         }
+    }
+    normalizeAddress(value, label) {
+        const trimmed = value?.trim().replace(/^['"]|['"]$/g, '');
+        if (!trimmed || !ethers_1.ethers.isAddress(trimmed)) {
+            throw new Error(`Invalid ${label}: ${value}`);
+        }
+        return ethers_1.ethers.getAddress(trimmed);
     }
 };
 exports.IndexerService = IndexerService;

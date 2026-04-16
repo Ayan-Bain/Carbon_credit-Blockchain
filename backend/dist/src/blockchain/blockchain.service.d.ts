@@ -5,9 +5,9 @@ export declare class BlockchainService implements OnModuleInit {
     private wallet;
     private accessControlContract;
     private registryContract;
-    private readonly ACCESS_CONTROL_ADDRESS;
+    private accessControlAddress;
     private readonly RPC_URL;
-    private readonly REGISTRY_ADDRESS;
+    private registryAddress;
     private readonly PRIVATE_KEY;
     private readonly REGISTRY_ABI;
     private readonly ACCESS_CONTROL_ABI;
@@ -17,4 +17,5 @@ export declare class BlockchainService implements OnModuleInit {
     transferCredits(onChainBatchId: string, fromWalletAddress: string, toWalletAddress: string, amount: number): Promise<any>;
     setOnChainRole(walletAddress: string, role: string, grant: boolean): Promise<any>;
     private ensureContractsReady;
+    private normalizeAddress;
 }

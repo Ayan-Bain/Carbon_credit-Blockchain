@@ -7,6 +7,7 @@ export class IndexerService implements OnModuleInit {
   private readonly logger = new Logger(IndexerService.name);
   private provider: ethers.JsonRpcProvider;
   private registryContract: ethers.Contract;
+  private registryAddress: string;
 
   // These should ideally be in .env
   private readonly RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545';
@@ -27,15 +28,16 @@ export class IndexerService implements OnModuleInit {
     }
 
     try {
+      this.registryAddress = this.normalizeAddress(this.REGISTRY_ADDRESS, 'REGISTRY_ADDRESS');
       this.provider = new ethers.JsonRpcProvider(this.RPC_URL);
       this.registryContract = new ethers.Contract(
-        this.REGISTRY_ADDRESS,
+        this.registryAddress,
         this.REGISTRY_ABI,
         this.provider,
       );
 
       this.setupEventListeners();
-      this.logger.log(`Blockchain Indexer started. Listening at ${this.REGISTRY_ADDRESS}`);
+      this.logger.log(`Blockchain Indexer started. Listening at ${this.registryAddress}`);
     } catch (error) {
       this.logger.error(`Failed to initialize Indexer: ${error.message}`);
     }
@@ -118,5 +120,15 @@ export class IndexerService implements OnModuleInit {
         await new Promise((res) => setTimeout(res, 2000));
       }
     }
+  }
+
+  private normalizeAddress(value: string | undefined, label: string) {
+    const trimmed = value?.trim().replace(/^['"]|['"]$/g, '');
+
+    if (!trimmed || !ethers.isAddress(trimmed)) {
+      throw new Error(`Invalid ${label}: ${value}`);
+    }
+
+    return ethers.getAddress(trimmed);
   }
 }

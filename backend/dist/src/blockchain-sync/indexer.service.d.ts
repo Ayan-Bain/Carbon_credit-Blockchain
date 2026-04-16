@@ -5,6 +5,7 @@ export declare class IndexerService implements OnModuleInit {
     private readonly logger;
     private provider;
     private registryContract;
+    private registryAddress;
     private readonly RPC_URL;
     private readonly REGISTRY_ADDRESS;
     private readonly REGISTRY_ABI;
@@ -14,4 +15,5 @@ export declare class IndexerService implements OnModuleInit {
     private handleBatchSubmitted;
     private handleBatchVerified;
     private runWithRetry;
+    private normalizeAddress;
 }
