@@ -12,9 +12,19 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Post('roles')
-  @Roles(CompanyRole.REGULATOR, CompanyRole.ADMIN) // Allow both
+  @Roles(CompanyRole.ADMIN) // Restricted to ADMIN only
   async updateRole(@Body() updateRoleDto: UpdateRoleDto) {
     return this.adminService.updateRole(updateRoleDto);
+  }
+
+  @Post('promote-regulator')
+  @Roles(CompanyRole.ADMIN) // Restricted to ADMIN only
+  async promoteToRegulator(@Body('walletAddress') walletAddress: string) {
+    return this.adminService.updateRole({
+      walletAddress,
+      role: CompanyRole.REGULATOR,
+      grant: true,
+    });
   }
 
   @Get('batches/pending')
@@ -28,9 +38,9 @@ export class AdminController {
   async verifyBatch(
     @Req() req: any,
     @Param('id') id: string,
-    @Body() body: { quantity: number },
+    @Body() body: { quantity?: number },
   ) {
-    return this.adminService.verifyBatch(id, req.user.id, body.quantity);
+    return this.adminService.verifyBatch(id, req.user.id, body?.quantity);
   }
 
   @Post('batches/:id/reject')

@@ -45,7 +45,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], MarketController.prototype, "createListing", null);
 __decorate([
-    (0, common_1.Get)('listings'),
+    (0, common_1.Get)(['listing', 'listings']),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

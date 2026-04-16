@@ -15,7 +15,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CompanyRole } from '@prisma/client';
-import { VerifyBatchDto } from './dto/verify-batch.dto';
 
 @Controller()
 export class CreditsController {
@@ -33,6 +32,22 @@ export class CreditsController {
     return this.creditsService.submitBatch(req.user.id, file, metadata);
   }
 
+  /**
+   * After the producer calls submitBatch() on the CreditRegistry contract
+   * from their own wallet, they call this endpoint to register the
+   * on-chain batch ID in our DB so the regulator can verify it.
+   */
+  @Post('credits/batches/:id/confirm-onchain')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(CompanyRole.PRODUCER)
+  async confirmOnChain(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { onChainBatchId: string; txHash: string },
+  ) {
+    return this.creditsService.confirmOnChain(id, req.user.id, body.onChainBatchId, body.txHash);
+  }
+
   @Get('credits/batches')
   @UseGuards(JwtAuthGuard)
   async getOwnBatches(@Req() req: any) {
@@ -46,7 +61,8 @@ export class CreditsController {
 
   @Post('credits/retire')
   @UseGuards(JwtAuthGuard)
-  async retireCredits(@Req() req: any, @Body() body: { batchId: string; amount: number }) {
-    return this.creditsService.retireCredits(body.batchId, body.amount, req.user.id);
+  async retireCredits(@Req() req: any, @Body() body: { batchId: string; amount: number; purpose?: string }) {
+    return this.creditsService.retireCredits(body.batchId, body.amount, req.user.id, body.purpose);
   }
 }
+

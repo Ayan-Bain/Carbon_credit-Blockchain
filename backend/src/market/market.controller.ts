@@ -16,7 +16,7 @@ export class MarketController {
     return this.marketService.createListing(body.batchId, body.price, body.amount, req.user.id);
   }
 
-  @Get('listings')
+  @Get(['listing', 'listings'])
   async getListings() {
     return this.marketService.getListings();
   }

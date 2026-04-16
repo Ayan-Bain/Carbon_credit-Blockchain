@@ -29,6 +29,10 @@ async function main() {
   await accessControl.grantRole(REGULATOR_ROLE, registryAddress);
   console.log("Granted REGULATOR_ROLE to CreditRegistry");
 
+  // 5. Grant REGULATOR_ROLE to the deployer so the backend server's Admin wallet can call verifyBatch
+  await accessControl.grantRole(REGULATOR_ROLE, deployer.address);
+  console.log("Granted REGULATOR_ROLE to Admin/Deployer");
+
   // THIS IS YOUR REGISTRY_ADDRESS
   console.log("-----------------------------------------------");
   console.log("DEPLOYMENT COMPLETE");

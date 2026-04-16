@@ -6,19 +6,15 @@ export declare class MarketController {
         batchId: string;
         price: number;
         amount: number;
-    }): Promise<{
-        status: string;
-        batchId: string;
-        price: number;
-        amount: number;
-    }>;
+    }): Promise<any>;
     getListings(): Promise<any[]>;
     buyListing(req: any, id: string, body: {
         amount: number;
     }): Promise<{
         status: string;
-        txHash: string;
+        transactionId: string;
         listingId: string;
         amount: number;
+        txHash: any;
     }>;
 }

@@ -1,18 +1,17 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 export declare class MarketService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
-    createListing(batchId: string, price: number, amount: number, producerId: string): Promise<{
-        status: string;
-        batchId: string;
-        price: number;
-        amount: number;
-    }>;
+    private readonly blockchain;
+    constructor(prisma: PrismaService, blockchain: BlockchainService);
+    createListing(batchId: string, price: number, amount: number, producerId: string): Promise<any>;
     getListings(): Promise<any[]>;
     buyListing(listingId: string, amount: number, buyerId: string): Promise<{
         status: string;
-        txHash: string;
+        transactionId: string;
         listingId: string;
         amount: number;
+        txHash: any;
     }>;
+    private serializeListing;
 }

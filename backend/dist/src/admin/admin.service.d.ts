@@ -22,7 +22,7 @@ export declare class AdminService {
         verifiedById: string | null;
         txHash: string | null;
     }[]>;
-    verifyBatch(batchId: string, regulatorId: string, quantity: number): Promise<{
+    verifyBatch(batchId: string, regulatorId: string, quantity?: number): Promise<{
         id: string;
         onChainBatchId: string | null;
         producerId: string;

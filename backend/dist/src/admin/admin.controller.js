@@ -27,11 +27,18 @@ let AdminController = class AdminController {
     async updateRole(updateRoleDto) {
         return this.adminService.updateRole(updateRoleDto);
     }
+    async promoteToRegulator(walletAddress) {
+        return this.adminService.updateRole({
+            walletAddress,
+            role: client_1.CompanyRole.REGULATOR,
+            grant: true,
+        });
+    }
     async getPendingBatches() {
         return this.adminService.getPendingBatches();
     }
     async verifyBatch(req, id, body) {
-        return this.adminService.verifyBatch(id, req.user.id, body.quantity);
+        return this.adminService.verifyBatch(id, req.user.id, body?.quantity);
     }
     async rejectBatch(req, id) {
         return this.adminService.rejectBatch(id, req.user.id);
@@ -40,12 +47,20 @@ let AdminController = class AdminController {
 exports.AdminController = AdminController;
 __decorate([
     (0, common_1.Post)('roles'),
-    (0, roles_decorator_1.Roles)(client_1.CompanyRole.REGULATOR, client_1.CompanyRole.ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.CompanyRole.ADMIN),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [update_role_dto_1.UpdateRoleDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "updateRole", null);
+__decorate([
+    (0, common_1.Post)('promote-regulator'),
+    (0, roles_decorator_1.Roles)(client_1.CompanyRole.ADMIN),
+    __param(0, (0, common_1.Body)('walletAddress')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "promoteToRegulator", null);
 __decorate([
     (0, common_1.Get)('batches/pending'),
     (0, roles_decorator_1.Roles)(client_1.CompanyRole.REGULATOR),

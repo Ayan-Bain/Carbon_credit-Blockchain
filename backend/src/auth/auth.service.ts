@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { generateNonce, SiweMessage } from 'siwe';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,7 +20,11 @@ export class AuthService {
   }
 
   async register(name: string, walletAddress: string, role?: CompanyRole) {
-    const address = walletAddress.toLowerCase();
+    if (role === CompanyRole.ADMIN || role === CompanyRole.REGULATOR) {
+      throw new BadRequestException('Cannot register as an ADMIN or REGULATOR. These roles must be granted by an existing Admin.');
+    }
+
+    const address = walletAddress;
     let company = await this.prisma.company.findUnique({
       where: { walletAddress: address },
     });
@@ -60,7 +64,7 @@ export class AuthService {
     // Consume the nonce to prevent replay attacks
     this.issuedNonces.delete(siweMessage.nonce);
 
-    const walletAddress = siweMessage.address.toLowerCase();
+    const walletAddress = siweMessage.address;
 
     // Check if the company exists
     let company = await this.prisma.company.findUnique({
@@ -68,8 +72,8 @@ export class AuthService {
     });
 
     // Check if it's the admin
-    const adminAddress = process.env.ADMIN_WALLET_ADDRESS?.toLowerCase();
-    const isLocalAdmin = walletAddress === adminAddress;
+    const adminAddress = process.env.ADMIN_WALLET_ADDRESS;
+    const isLocalAdmin = walletAddress.toLowerCase() === adminAddress?.toLowerCase();
 
     // Create a new company if it doesn't exist
     if (!company) {

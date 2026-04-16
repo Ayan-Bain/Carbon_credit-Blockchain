@@ -7,6 +7,10 @@ export declare class AdminController {
         message: string;
         txHash: any;
     }>;
+    promoteToRegulator(walletAddress: string): Promise<{
+        message: string;
+        txHash: any;
+    }>;
     getPendingBatches(): Promise<{
         id: string;
         onChainBatchId: string | null;
@@ -21,7 +25,7 @@ export declare class AdminController {
         txHash: string | null;
     }[]>;
     verifyBatch(req: any, id: string, body: {
-        quantity: number;
+        quantity?: number;
     }): Promise<{
         id: string;
         onChainBatchId: string | null;

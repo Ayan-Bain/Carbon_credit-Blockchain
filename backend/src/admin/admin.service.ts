@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -44,13 +44,20 @@ export class AdminService {
     });
   }
 
-  async verifyBatch(batchId: string, regulatorId: string, quantity: number) {
+  async verifyBatch(batchId: string, regulatorId: string, quantity?: number) {
     const batch = await this.prisma.creditBatch.findUnique({
       where: { id: batchId },
     });
     if (!batch) throw new NotFoundException('Batch not found');
 
-    const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, quantity);
+    if (!batch.onChainBatchId) {
+      throw new BadRequestException(
+        `Batch "${batchId}" has no on-chain ID yet. The producer must submit it to the smart contract first.`,
+      );
+    }
+
+    const finalQuantity = quantity || batch.quantity;
+    const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, finalQuantity);
 
     return this.prisma.creditBatch.update({
       where: { id: batchId },
@@ -59,8 +66,8 @@ export class AdminService {
         verifiedAt: new Date(),
         verifiedById: regulatorId,
         txHash: txHash,
-        quantity: quantity,
-        remainingQuantity: quantity,
+        quantity: finalQuantity,
+        remainingQuantity: finalQuantity,
       },
     });
   }

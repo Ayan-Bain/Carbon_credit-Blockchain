@@ -15,8 +15,15 @@ export class BlockchainService implements OnModuleInit {
   private readonly PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY; // Regulator/Admin private key
 
   private readonly REGISTRY_ABI = [
+    'function submitBatch(string memory _metadataHash) external returns (uint256)',
     'function verifyBatch(uint256 _batchId, uint256 _quantity) external',
+    'function transferCredits(uint256 _batchId, address _from, address _to, uint256 _amount) external',
+    'function retireCredits(uint256 _batchId, address _account, uint256 _amount) external',
     'function batches(uint256) view returns (uint256 id, address producer, string metadataHash, uint256 quantity, uint256 submittedAt, bool verified)',
+    'event BatchSubmitted(uint256 indexed batchId, address indexed producer, string metadataHash)',
+    'event BatchVerified(uint256 indexed batchId, address indexed producer, uint256 amount)',
+    'event CreditsTransferred(uint256 indexed batchId, address indexed from, address indexed to, uint256 amount)',
+    'event CreditsRetired(uint256 indexed batchId, address indexed account, uint256 amount)',
   ];
 
   private readonly ACCESS_CONTROL_ABI = [
@@ -50,7 +57,16 @@ export class BlockchainService implements OnModuleInit {
   }
 
   async verifyBatch(onChainBatchId: string, quantity: number) {
+    this.ensureContractsReady();
     this.logger.log(`Invoking verifyBatch for ID ${onChainBatchId} with quantity ${quantity}`);
+
+    if (!onChainBatchId) {
+      throw new Error(`verifyBatch called with invalid onChainBatchId: ${onChainBatchId}`);
+    }
+    if (!quantity || quantity <= 0) {
+      throw new Error(`verifyBatch called with invalid quantity: ${quantity}`);
+    }
+
     const tx = await this.registryContract.verifyBatch(
       BigInt(onChainBatchId),
       BigInt(quantity),
@@ -60,7 +76,62 @@ export class BlockchainService implements OnModuleInit {
     return tx.hash;
   }
 
+  async retireCredits(onChainBatchId: string, walletAddress: string, amount: number) {
+    this.ensureContractsReady();
+    this.logger.log(`Invoking retireCredits for ID ${onChainBatchId}, wallet ${walletAddress}, amount ${amount}`);
+
+    if (!onChainBatchId) {
+      throw new Error(`retireCredits called with invalid onChainBatchId: ${onChainBatchId}`);
+    }
+    if (!walletAddress) {
+      throw new Error(`retireCredits called with invalid walletAddress: ${walletAddress}`);
+    }
+    if (!amount || amount <= 0) {
+      throw new Error(`retireCredits called with invalid amount: ${amount}`);
+    }
+
+    const tx = await this.registryContract.retireCredits(
+      BigInt(onChainBatchId),
+      walletAddress,
+      BigInt(amount),
+    );
+    this.logger.log(`Retirement transaction sent: ${tx.hash}`);
+    await tx.wait();
+    return tx.hash;
+  }
+
+  async transferCredits(onChainBatchId: string, fromWalletAddress: string, toWalletAddress: string, amount: number) {
+    this.ensureContractsReady();
+    this.logger.log(
+      `Invoking transferCredits for ID ${onChainBatchId}, from ${fromWalletAddress}, to ${toWalletAddress}, amount ${amount}`,
+    );
+
+    if (!onChainBatchId) {
+      throw new Error(`transferCredits called with invalid onChainBatchId: ${onChainBatchId}`);
+    }
+    if (!fromWalletAddress) {
+      throw new Error(`transferCredits called with invalid fromWalletAddress: ${fromWalletAddress}`);
+    }
+    if (!toWalletAddress) {
+      throw new Error(`transferCredits called with invalid toWalletAddress: ${toWalletAddress}`);
+    }
+    if (!amount || amount <= 0) {
+      throw new Error(`transferCredits called with invalid amount: ${amount}`);
+    }
+
+    const tx = await this.registryContract.transferCredits(
+      BigInt(onChainBatchId),
+      fromWalletAddress,
+      toWalletAddress,
+      BigInt(amount),
+    );
+    this.logger.log(`Transfer transaction sent: ${tx.hash}`);
+    await tx.wait();
+    return tx.hash;
+  }
+
   async setOnChainRole(walletAddress: string, role: string, grant: boolean) {
+    this.ensureContractsReady();
     this.logger.log(`${grant ? 'Granting' : 'Revoking'} role ${role} for ${walletAddress}`);
     
     let roleHash: string;
@@ -85,5 +156,11 @@ export class BlockchainService implements OnModuleInit {
     this.logger.log(`Role update tx sent: ${tx.hash}`);
     await tx.wait();
     return tx.hash;
+  }
+
+  private ensureContractsReady() {
+    if (!this.registryContract || !this.accessControlContract) {
+      throw new Error('Blockchain contracts are not initialized. Check REGISTRY_ADDRESS, ACCESS_CONTROL_ADDRESS, and ADMIN_PRIVATE_KEY.');
+    }
   }
 }

@@ -32,4 +32,25 @@ contract CarbonCreditToken is ERC1155 {
     function mint(address to, uint256 batchId, uint256 amount, bytes memory data) external onlyRegulator {
         _mint(to, batchId, amount, data);
     }
+
+    /**
+     * @dev Burns carbon credit tokens from a specific account and batch.
+     * The caller must hold the REGULATOR_ROLE.
+     */
+    function burnFrom(address from, uint256 batchId, uint256 amount) external onlyRegulator {
+        _burn(from, batchId, amount);
+    }
+
+    /**
+     * @dev Transfers carbon credit tokens between accounts under regulator control.
+     */
+    function transferByRegulator(
+        address from,
+        address to,
+        uint256 batchId,
+        uint256 amount,
+        bytes memory data
+    ) external onlyRegulator {
+        _safeTransferFrom(from, to, batchId, amount, data);
+    }
 }

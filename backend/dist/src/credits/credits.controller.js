@@ -27,6 +27,9 @@ let CreditsController = class CreditsController {
     async submitBatch(req, file, metadata) {
         return this.creditsService.submitBatch(req.user.id, file, metadata);
     }
+    async confirmOnChain(req, id, body) {
+        return this.creditsService.confirmOnChain(id, req.user.id, body.onChainBatchId, body.txHash);
+    }
     async getOwnBatches(req) {
         return this.creditsService.getProducerBatches(req.user.id);
     }
@@ -34,7 +37,7 @@ let CreditsController = class CreditsController {
         return this.creditsService.getBatch(id);
     }
     async retireCredits(req, body) {
-        return this.creditsService.retireCredits(body.batchId, body.amount, req.user.id);
+        return this.creditsService.retireCredits(body.batchId, body.amount, req.user.id, body.purpose);
     }
 };
 exports.CreditsController = CreditsController;
@@ -50,6 +53,17 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], CreditsController.prototype, "submitBatch", null);
+__decorate([
+    (0, common_1.Post)('credits/batches/:id/confirm-onchain'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(client_1.CompanyRole.PRODUCER),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], CreditsController.prototype, "confirmOnChain", null);
 __decorate([
     (0, common_1.Get)('credits/batches'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

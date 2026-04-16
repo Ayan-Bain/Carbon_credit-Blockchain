@@ -1,56 +1,154 @@
 # Carbon Credit API Documentation
 
-This document provides a comprehensive overview of all REST API endpoints available in the Carbon Credit System. The endpoints are categorized by their respective modules and the roles authorized to access them.
+This document describes the current REST API implemented in the repository.
 
-## 1. Authentication Module
-Manage identity and system access using Sign-In with Ethereum (SIWE).
+Documentation policy: whenever an endpoint, auth rule, input shape, or response contract changes, update this file in the same change set.
 
-| Endpoint             | Method | Input Format | Result | Transaction Req. | Return Values |
-|----------------------|--------|-------------|--------|------------------|---------------|
-| `/auth/nonce`        | GET    | None | Generates a unique session nonce | No | Nonce string |
-| `/auth/register`     | POST   | JSON (`name`, `walletAddress`, `role`) | New company/wallet record created in DB | No | Company object |
-| `/auth/login`        | POST   | JSON (`message`, `signature`) | User authenticated via wallet signature | No | `accessToken` (JWT), User object |
+## Authentication
 
----
+| Endpoint | Method | Auth | Input Format | Notes |
+|---|---|---|---|---|
+| `/auth/nonce` | `GET` | None | No body | Returns a SIWE nonce. Nonces are kept in memory and are invalidated after server restart or successful login. |
+| `/auth/register` | `POST` | None | JSON: `name`, `walletAddress`, optional `role` | Creates a company record. `ADMIN` and `REGULATOR` cannot be self-registered. |
+| `/auth/login` | `POST` | None | JSON: `message`, `signature` | Verifies the SIWE payload and returns `accessToken` plus the user record. JWT expiry is `1d`. |
 
-## 2. Credit Management Module — Producer
-These endpoints allow producers to submit new batches and track their ongoing status.
+Example `POST /auth/register`
 
-| Endpoint | Method | Input Format | Result | Transaction Req. | Return Values |
-|----------|--------|--------------|--------|------------------|---------------|
-| `/credits/batches` | POST | JSON (`file`, metadata) | Credit batch submitted for verification | YES (`submitCreditBatch`) | CreditBatch object with PENDING status |
-| `/credits/batches/:id` | GET | Path Param (`id`) | Fetches specific batch details | No | CreditBatch object |
-| `/credits/batches` | GET | None (Filters by JWT) | Lists own batches | No | Array of CreditBatch objects |
-| `/market/listings` | POST | JSON (`batchId`, `price`, `amount`) | Verified credits listed for sale | YES (`listForSale`) | CreditListing object |
+```json
+{
+  "name": "OpenAI",
+  "walletAddress": "0x1234...",
+  "role": "BUYER"
+}
+```
 
----
+Example `POST /auth/login`
 
-## 3. Regulatory Module
-Endpoints reserved for regulators to evaluate, approve, or reject submitted credit batches.
+```json
+{
+  "message": "domain: ...",
+  "signature": "0xabc..."
+}
+```
 
-| Endpoint | Method | Input Format | Result | Transaction Req. | Return Values |
-|----------|--------|--------------|--------|------------------|---------------|
-| `/admin/batches/pending` | GET | None | Lists all batches awaiting approval | No | Array of CreditBatch objects |
-| `/admin/batches/:id/verify` | POST | Path Param (`id`), JSON (`quantity`) | Batch approved and tokens minted | YES (`verifyCreditBatch`) | Success message & `txHash` |
-| `/admin/batches/:id/reject` | POST | Path Param (`id`) | Batch status updated to REJECTED | No | Success message |
+## Admin
 
----
+All `/admin/*` routes require a valid JWT. Role restrictions are listed below.
 
-## 4. Marketplace Module — Buyer
-These endpoints enable buyers to browse the marketplace, purchase verified credits, and retire them.
+| Endpoint | Method | Role | Input Format | Notes |
+|---|---|---|---|---|
+| `/admin/roles` | `POST` | `ADMIN` | JSON: `walletAddress`, `role`, `grant` | Updates both DB role and on-chain role. |
+| `/admin/promote-regulator` | `POST` | `ADMIN` | JSON: `walletAddress` | Convenience wrapper around `/admin/roles` for granting `REGULATOR`. |
+| `/admin/batches/pending` | `GET` | `REGULATOR` | No body | Lists pending batches. |
+| `/admin/batches/:id/verify` | `POST` | `REGULATOR` | Optional JSON: `quantity` | Calls the registry contract to verify the batch and updates DB status to `VERIFIED`. |
+| `/admin/batches/:id/reject` | `POST` | `REGULATOR` | No body | Marks the batch as `REJECTED` in the DB. |
 
-| Endpoint | Method | Input Format | Result | Transaction Req. | Return Values |
-|----------|--------|--------------|--------|------------------|---------------|
-| `/market/listings` | GET | Query Params (Filters) | Lists available credit listings | No | Array of CreditListing objects |
-| `/market/listings/:id/buy` | POST | Path Param (`id`), JSON (`amount`) | Credits purchased and transferred | YES (`purchaseCredits`) | Transaction object & `txHash` |
-| `/credits/retire` | POST | JSON (`batchId`, `amount`) | Credits permanently retired (burned) | YES (`retireCredits`) | RetirementRecord object & `txHash` |
+Example `POST /admin/roles`
 
----
+```json
+{
+  "walletAddress": "0x1234...",
+  "role": "BUYER",
+  "grant": true
+}
+```
 
-## 5. Audit & History Module
-Public or admin endpoints designed to ensure system transparency and auditability.
+Example `POST /admin/batches/:id/verify`
 
-| Endpoint | Method | Input Format | Result | Transaction Req. | Return Values |
-|----------|--------|--------------|--------|------------------|---------------|
-| `/audit/batch/:id` | GET | Path Param (`id`) | Full lifecycle history of a credit batch | No | Lifecycle history object |
-| `/audit/company/:id` | GET | Path Param (`id`) | Transaction history for a company | No | Array of Transaction records |
+```json
+{
+  "quantity": 500
+}
+```
+
+## Credits
+
+| Endpoint | Method | Auth | Input Format | Notes |
+|---|---|---|---|---|
+| `/credits/batches` | `POST` | JWT + `PRODUCER` | `multipart/form-data` with `file` and `quantity`; other metadata fields optional | Uploads the file to IPFS, stores metadata in IPFS, and creates a DB batch with status `PENDING`. This endpoint does not submit the batch on-chain. |
+| `/credits/batches/:id/confirm-onchain` | `POST` | JWT + `PRODUCER` | JSON: `onChainBatchId`, `txHash` | Links an existing DB batch to the producer's on-chain submission. |
+| `/credits/batches` | `GET` | JWT | No body | Returns batches for the authenticated user ID. |
+| `/credits/batches/:id` | `GET` | None | Path param: `id` | Returns one batch by ID. |
+| `/credits/retire` | `POST` | JWT | JSON: `batchId`, `amount`, optional `purpose` | Validates that the buyer has enough purchased-but-not-yet-retired units for the batch, calls the registry contract to retire them on-chain, and stores a `RetirementRecord`. |
+
+Example `POST /credits/batches` form-data
+
+| Field | Type | Required |
+|---|---|---|
+| `file` | File upload | Yes |
+| `quantity` | Integer as text | Yes |
+| `projectName` | Text | No |
+| `vintage` | Text | No |
+| Any other metadata key | Text | No |
+
+Example `POST /credits/batches/:id/confirm-onchain`
+
+```json
+{
+  "onChainBatchId": "1",
+  "txHash": "0xabc..."
+}
+```
+
+Example `POST /credits/retire`
+
+```json
+{
+  "batchId": "35096d0b-e94e-4223-966d-a3ed687d2943",
+  "amount": 25,
+  "purpose": "Q2 2026 offset"
+}
+```
+
+## Market
+
+| Endpoint | Method | Auth | Input Format | Notes |
+|---|---|---|---|---|
+| `/market/listings` | `POST` | JWT + `PRODUCER` | JSON: `batchId`, `price`, `amount` | Creates a marketplace listing from a verified batch and reserves the listed units in the DB. |
+| `/market/listings` | `GET` | None | No body | Returns active listings. |
+| `/market/listing` | `GET` | None | No body | Alias of `/market/listings`. |
+| `/market/listings/:id/buy` | `POST` | JWT | JSON: `amount` | Transfers the batch tokens on-chain from seller wallet to buyer wallet using the registry contract, then stores a confirmed DB transaction. |
+
+Example `POST /market/listings`
+
+```json
+{
+  "batchId": "35096d0b-e94e-4223-966d-a3ed687d2943",
+  "price": 12.5,
+  "amount": 100
+}
+```
+
+Example `POST /market/listings/:id/buy`
+
+```json
+{
+  "amount": 20
+}
+```
+
+## Audit
+
+| Endpoint | Method | Auth | Input Format | Notes |
+|---|---|---|---|---|
+| `/audit/batch/:id` | `GET` | None | Path param: `id` | Returns batch details plus chronological lifecycle history built from DB batch, listing, purchase, and retirement records. |
+| `/audit/company/:id` | `GET` | None | Path param: `id` | Returns company details plus chronological activity history built from DB records. |
+
+## On-chain vs DB Behavior
+
+| Endpoint | On-chain action | DB write |
+|---|---|---|
+| `POST /auth/register` | No | Yes |
+| `POST /admin/roles` | Yes | Yes |
+| `POST /credits/batches` | No | Yes |
+| `POST /credits/batches/:id/confirm-onchain` | No | Yes |
+| `POST /admin/batches/:id/verify` | Yes | Yes |
+| `POST /market/listings` | No | Yes |
+| `POST /market/listings/:id/buy` | Yes | Yes |
+| `POST /credits/retire` | Yes | Yes |
+
+## Notes
+
+- The backend signs blockchain actions with the configured admin/regulator private key from `backend/.env`.
+- `POST /credits/retire` assumes the buyer's on-chain balance came from prior marketplace purchases handled through `POST /market/listings/:id/buy`.
+- `GET /credits/batches` requires a JWT but does not use query filters or request body input.

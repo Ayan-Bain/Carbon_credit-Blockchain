@@ -27,7 +27,10 @@ let AuthService = class AuthService {
         return nonce;
     }
     async register(name, walletAddress, role) {
-        const address = walletAddress.toLowerCase();
+        if (role === client_1.CompanyRole.ADMIN || role === client_1.CompanyRole.REGULATOR) {
+            throw new common_1.BadRequestException('Cannot register as an ADMIN or REGULATOR. These roles must be granted by an existing Admin.');
+        }
+        const address = walletAddress;
         let company = await this.prisma.company.findUnique({
             where: { walletAddress: address },
         });
@@ -59,12 +62,12 @@ let AuthService = class AuthService {
             throw new common_1.UnauthorizedException('Invalid or expired nonce');
         }
         this.issuedNonces.delete(siweMessage.nonce);
-        const walletAddress = siweMessage.address.toLowerCase();
+        const walletAddress = siweMessage.address;
         let company = await this.prisma.company.findUnique({
             where: { walletAddress },
         });
-        const adminAddress = process.env.ADMIN_WALLET_ADDRESS?.toLowerCase();
-        const isLocalAdmin = walletAddress === adminAddress;
+        const adminAddress = process.env.ADMIN_WALLET_ADDRESS;
+        const isLocalAdmin = walletAddress.toLowerCase() === adminAddress?.toLowerCase();
         if (!company) {
             company = await this.prisma.company.create({
                 data: {

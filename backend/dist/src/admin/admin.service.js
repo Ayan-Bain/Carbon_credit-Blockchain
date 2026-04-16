@@ -47,7 +47,11 @@ let AdminService = class AdminService {
         });
         if (!batch)
             throw new common_1.NotFoundException('Batch not found');
-        const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, quantity);
+        if (!batch.onChainBatchId) {
+            throw new common_1.BadRequestException(`Batch "${batchId}" has no on-chain ID yet. The producer must submit it to the smart contract first.`);
+        }
+        const finalQuantity = quantity || batch.quantity;
+        const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, finalQuantity);
         return this.prisma.creditBatch.update({
             where: { id: batchId },
             data: {
@@ -55,8 +59,8 @@ let AdminService = class AdminService {
                 verifiedAt: new Date(),
                 verifiedById: regulatorId,
                 txHash: txHash,
-                quantity: quantity,
-                remainingQuantity: quantity,
+                quantity: finalQuantity,
+                remainingQuantity: finalQuantity,
             },
         });
     }

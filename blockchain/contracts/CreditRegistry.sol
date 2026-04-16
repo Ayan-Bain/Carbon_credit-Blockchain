@@ -22,6 +22,8 @@ contract CreditRegistry {
 
     event BatchSubmitted(uint256 indexed batchId, address indexed producer, string metadataHash);
     event BatchVerified(uint256 indexed batchId, address indexed producer, uint256 amount);
+    event CreditsTransferred(uint256 indexed batchId, address indexed from, address indexed to, uint256 amount);
+    event CreditsRetired(uint256 indexed batchId, address indexed account, uint256 amount);
 
     constructor(address _accessControlAddress, address _tokenAddress) {
         accessControl = CarbonAccessControl(_accessControlAddress);
@@ -80,5 +82,48 @@ contract CreditRegistry {
         token.mint(batch.producer, _batchId, _quantity, "");
 
         emit BatchVerified(_batchId, batch.producer, _quantity);
+    }
+
+    /**
+     * @dev Allows a regulator to retire credits by burning the buyer's batch tokens.
+     * @param _batchId The ID of the verified batch.
+     * @param _account The token holder whose credits should be retired.
+     * @param _amount The number of credits to retire.
+     */
+    function retireCredits(uint256 _batchId, address _account, uint256 _amount) external onlyRegulator {
+        CreditBatch storage batch = batches[_batchId];
+        require(batch.id != 0, "Batch does not exist");
+        require(batch.verified, "Batch is not verified");
+        require(_account != address(0), "Invalid account");
+        require(_amount > 0, "Amount must be greater than zero");
+
+        token.burnFrom(_account, _batchId, _amount);
+
+        emit CreditsRetired(_batchId, _account, _amount);
+    }
+
+    /**
+     * @dev Allows a regulator to transfer verified batch tokens between accounts.
+     * @param _batchId The ID of the verified batch.
+     * @param _from The current token holder.
+     * @param _to The recipient.
+     * @param _amount The amount to transfer.
+     */
+    function transferCredits(
+        uint256 _batchId,
+        address _from,
+        address _to,
+        uint256 _amount
+    ) external onlyRegulator {
+        CreditBatch storage batch = batches[_batchId];
+        require(batch.id != 0, "Batch does not exist");
+        require(batch.verified, "Batch is not verified");
+        require(_from != address(0), "Invalid sender");
+        require(_to != address(0), "Invalid recipient");
+        require(_amount > 0, "Amount must be greater than zero");
+
+        token.transferByRegulator(_from, _to, _batchId, _amount, "");
+
+        emit CreditsTransferred(_batchId, _from, _to, _amount);
     }
 }
