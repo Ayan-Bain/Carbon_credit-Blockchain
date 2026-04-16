@@ -29,9 +29,11 @@ async function main() {
   await accessControl.grantRole(REGULATOR_ROLE, registryAddress);
   console.log("Granted REGULATOR_ROLE to CreditRegistry");
 
-  // 5. Grant REGULATOR_ROLE to the deployer so the backend server's Admin wallet can call verifyBatch
+  // 5. Grant roles to the deployer so the backend server's Admin wallet can act as Regulator and Minter
+  const MINTER_ROLE = await accessControl.MINTER_ROLE();
   await accessControl.grantRole(REGULATOR_ROLE, deployer.address);
-  console.log("Granted REGULATOR_ROLE to Admin/Deployer");
+  await accessControl.grantRole(MINTER_ROLE, deployer.address);
+  console.log("Granted REGULATOR_ROLE and MINTER_ROLE to Admin/Deployer");
 
   // THIS IS YOUR REGISTRY_ADDRESS
   console.log("-----------------------------------------------");

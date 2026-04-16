@@ -13,7 +13,7 @@ export declare class AdminService {
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;
@@ -22,11 +22,11 @@ export declare class AdminService {
         verifiedById: string | null;
         txHash: string | null;
     }[]>;
-    verifyBatch(batchId: string, regulatorId: string, quantity?: number): Promise<{
+    approveBatch(batchId: string, regulatorId: string, quantity?: number): Promise<{
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;
@@ -39,7 +39,7 @@ export declare class AdminService {
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;

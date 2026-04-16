@@ -27,8 +27,8 @@ let AuthService = class AuthService {
         return nonce;
     }
     async register(name, walletAddress, role) {
-        if (role === client_1.CompanyRole.ADMIN || role === client_1.CompanyRole.REGULATOR) {
-            throw new common_1.BadRequestException('Cannot register as an ADMIN or REGULATOR. These roles must be granted by an existing Admin.');
+        if (role === client_1.CompanyRole.ADMIN || role === client_1.CompanyRole.REGULATOR || role === client_1.CompanyRole.MINTER) {
+            throw new common_1.BadRequestException('Cannot register as an ADMIN, REGULATOR, or MINTER. These roles must be granted by an existing Admin.');
         }
         const address = walletAddress;
         let company = await this.prisma.company.findUnique({

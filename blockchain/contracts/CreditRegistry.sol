@@ -30,8 +30,8 @@ contract CreditRegistry {
         token = CarbonCreditToken(_tokenAddress);
     }
 
-    modifier onlyProducer() {
-        require(accessControl.hasRole(accessControl.PRODUCER_ROLE(), msg.sender), "Caller is not a producer");
+    modifier onlyMinter() {
+        require(accessControl.hasRole(accessControl.MINTER_ROLE(), msg.sender), "Caller is not a minter");
         _;
     }
 
@@ -41,32 +41,33 @@ contract CreditRegistry {
     }
 
     /**
-     * @dev Allows a producer to submit a new batch of carbon credits.
-     * @param _metadataHash The IPFS hash of the off-chain metadata (e.g., certificates).
+     * @dev Allows a minter to create a verified batch and mint tokens to a producer in one step.
+     * @param _producer The address of the producer who owns the credits.
+     * @param _metadataHash The IPFS hash of the off-chain metadata.
+     * @param _quantity The amount of credits to mint.
      * @return batchId The newly generated ID for this credit batch.
      */
-    function submitBatch(string memory _metadataHash) external onlyProducer returns (uint256) {
+    function mintBatch(address _producer, string memory _metadataHash, uint256 _quantity) external onlyMinter returns (uint256) {
         uint256 batchId = nextBatchId++;
         
         batches[batchId] = CreditBatch({
             id: batchId,
-            producer: msg.sender,
+            producer: _producer,
             metadataHash: _metadataHash,
-            quantity: 0,
+            quantity: _quantity,
             submittedAt: block.timestamp,
-            verified: false
+            verified: true
         });
 
-        emit BatchSubmitted(batchId, msg.sender, _metadataHash);
+        // Mint credits as tokens to the producer
+        token.mint(_producer, batchId, _quantity, "");
+
+        emit BatchSubmitted(batchId, _producer, _metadataHash);
+        emit BatchVerified(batchId, _producer, _quantity);
         
         return batchId;
     }
 
-    /**
-     * @dev Allows a regulator to verify a batch and mint tokens to the producer.
-     * @param _batchId The ID of the batch to verify.
-     * @param _quantity The quantity of credits to mint.
-     */
     function verifyBatch(uint256 _batchId, uint256 _quantity) external onlyRegulator {
         CreditBatch storage batch = batches[_batchId];
         require(batch.id != 0, "Batch does not exist");

@@ -7,7 +7,7 @@ export declare class CreditsController {
             id: string;
             onChainBatchId: string | null;
             producerId: string;
-            status: import(".prisma/client").$Enums.BatchStatus;
+            status: import("@prisma/client").$Enums.BatchStatus;
             quantity: number;
             remainingQuantity: number;
             metadataIPFSHash: string;
@@ -20,14 +20,11 @@ export declare class CreditsController {
         assetHash: string;
         nextStep: string;
     }>;
-    confirmOnChain(req: any, id: string, body: {
-        onChainBatchId: string;
-        txHash: string;
-    }): Promise<{
+    mintBatch(id: string): Promise<{
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;
@@ -40,7 +37,7 @@ export declare class CreditsController {
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;
@@ -53,7 +50,7 @@ export declare class CreditsController {
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;
@@ -75,9 +72,9 @@ export declare class CreditsController {
         txHash: any;
         retirement: {
             id: string;
+            buyerId: string;
             batchId: string;
             unitsRetired: number;
-            buyerId: string;
             purpose: string | null;
             retiredAt: Date;
             onChainTxHash: string;

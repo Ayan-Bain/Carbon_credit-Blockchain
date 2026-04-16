@@ -36,11 +36,24 @@ let MarketService = class MarketService {
         if (batch.producerId !== producerId) {
             throw new common_1.BadRequestException('You do not own this batch');
         }
-        if (batch.status !== client_1.BatchStatus.VERIFIED && batch.status !== client_1.BatchStatus.LISTED) {
-            throw new common_1.BadRequestException('Only verified batches can be listed');
+        if (batch.status !== client_1.BatchStatus.MINTED && batch.status !== client_1.BatchStatus.LISTED) {
+            throw new common_1.BadRequestException('Only minted batches can be listed');
         }
-        if (batch.remainingQuantity < amount) {
-            throw new common_1.BadRequestException('Not enough available credits in this batch');
+        const [soldAggr, listedAggr] = await Promise.all([
+            this.prisma.transaction.aggregate({
+                where: { listing: { batchId, sellerId: producerId }, status: 'CONFIRMED' },
+                _sum: { unitsPurchased: true },
+            }),
+            this.prisma.creditListing.aggregate({
+                where: { batchId, sellerId: producerId },
+                _sum: { availableUnits: true },
+            }),
+        ]);
+        const totalSold = soldAggr._sum.unitsPurchased || 0;
+        const totalListed = listedAggr._sum.availableUnits || 0;
+        const availableToList = batch.quantity - totalSold - totalListed;
+        if (availableToList < amount) {
+            throw new common_1.BadRequestException(`Not enough unallocated credits. You own ${batch.quantity - totalSold} units, but ${totalListed} are already tied up in active listings.`);
         }
         const listing = await this.prisma.$transaction(async (tx) => {
             const createdListing = await tx.creditListing.create({
@@ -64,9 +77,6 @@ let MarketService = class MarketService {
             await tx.creditBatch.update({
                 where: { id: batchId },
                 data: {
-                    remainingQuantity: {
-                        decrement: amount,
-                    },
                     status: client_1.BatchStatus.LISTED,
                 },
             });
@@ -143,13 +153,24 @@ let MarketService = class MarketService {
                     },
                 },
             });
-            if (updatedListing.availableUnits === 0 && listing.batch.remainingQuantity === 0) {
-                await tx.creditBatch.update({
-                    where: { id: listing.batchId },
-                    data: {
-                        status: client_1.BatchStatus.SOLD_OUT,
-                    },
+            if (updatedListing.availableUnits === 0) {
+                const currentListedAggr = await tx.creditListing.aggregate({
+                    where: { batchId: listing.batchId, sellerId: listing.sellerId },
+                    _sum: { availableUnits: true },
                 });
+                const currentSoldAggr = await tx.transaction.aggregate({
+                    where: { listing: { batchId: listing.batchId, sellerId: listing.sellerId }, status: 'CONFIRMED' },
+                    _sum: { unitsPurchased: true },
+                });
+                const remainingToProducer = listing.batch.quantity - (currentSoldAggr._sum.unitsPurchased || 0) - (currentListedAggr._sum.availableUnits || 0);
+                if (remainingToProducer === 0) {
+                    await tx.creditBatch.update({
+                        where: { id: listing.batchId },
+                        data: {
+                            status: client_1.BatchStatus.SOLD_OUT,
+                        },
+                    });
+                }
             }
             return transaction;
         });

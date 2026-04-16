@@ -97,7 +97,7 @@ export class IndexerService implements OnModuleInit {
         await this.prisma.creditBatch.update({
           where: { id: batch.id },
           data: {
-            status: 'VERIFIED',
+            status: 'MINTED',
             verifiedAt: new Date(), // Ideally use timestamp from block
             txHash: txHash,
             quantity: amount,

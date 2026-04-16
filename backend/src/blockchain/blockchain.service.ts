@@ -14,7 +14,7 @@ export class BlockchainService implements OnModuleInit {
   private readonly PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY; // Regulator/Admin private key
 
   private readonly REGISTRY_ABI = [
-    'function submitBatch(string memory _metadataHash) external returns (uint256)',
+    'function mintBatch(address _producer, string memory _metadataHash, uint256 _quantity) external returns (uint256)',
     'function verifyBatch(uint256 _batchId, uint256 _quantity) external',
     'function transferCredits(uint256 _batchId, address _from, address _to, uint256 _amount) external',
     'function retireCredits(uint256 _batchId, address _account, uint256 _amount) external',
@@ -25,12 +25,14 @@ export class BlockchainService implements OnModuleInit {
     'event CreditsRetired(uint256 indexed batchId, address indexed account, uint256 amount)',
   ];
 
+
   private readonly ACCESS_CONTROL_ABI = [
     'function grantRole(bytes32 role, address account) external',
     'function revokeRole(bytes32 role, address account) external',
     'function PRODUCER_ROLE() view returns (bytes32)',
     'function REGULATOR_ROLE() view returns (bytes32)',
     'function BUYER_ROLE() view returns (bytes32)',
+    'function MINTER_ROLE() view returns (bytes32)',
   ];
 
   async onModuleInit() {
@@ -41,6 +43,7 @@ export class BlockchainService implements OnModuleInit {
 
     this.registryAddress = this.normalizeAddress(process.env.REGISTRY_ADDRESS, 'REGISTRY_ADDRESS');
     this.accessControlAddress = this.normalizeAddress(process.env.ACCESS_CONTROL_ADDRESS, 'ACCESS_CONTROL_ADDRESS');
+    this.logger.log(`BlockchainService initialized with Registry: ${this.registryAddress}, AccessControl: ${this.accessControlAddress}`);
 
     this.provider = new ethers.JsonRpcProvider(this.RPC_URL);
     this.wallet = new ethers.Wallet(this.PRIVATE_KEY, this.provider);
@@ -56,6 +59,41 @@ export class BlockchainService implements OnModuleInit {
       this.ACCESS_CONTROL_ABI,
       this.wallet,
     );
+  }
+
+  async mintBatch(producerWallet: string, metadataHash: string, quantity: number) {
+    this.ensureContractsReady();
+    this.logger.log(`Invoking mintBatch for producer ${producerWallet}, hash ${metadataHash}, quantity ${quantity}`);
+
+    const normalizedProducer = this.normalizeAddress(producerWallet, 'producer wallet');
+    
+    const tx = await this.registryContract.mintBatch(
+      normalizedProducer,
+      metadataHash,
+      BigInt(quantity),
+    );
+    this.logger.log(`Mint transaction sent: ${tx.hash}`);
+    const receipt = await tx.wait();
+    
+    // Parse logs to find BatchSubmitted event and get the ID
+    const event = receipt.logs.find((l: any) => {
+      try {
+        const parsed = this.registryContract.interface.parseLog(l);
+        return parsed?.name === 'BatchSubmitted';
+      } catch (e) {
+        return false;
+      }
+    });
+
+    if (event) {
+      const parsed = this.registryContract.interface.parseLog(event);
+      return {
+        txHash: tx.hash,
+        onChainBatchId: parsed?.args[0].toString(),
+      };
+    }
+
+    return { txHash: tx.hash };
   }
 
   async verifyBatch(onChainBatchId: string, quantity: number) {
@@ -140,6 +178,9 @@ export class BlockchainService implements OnModuleInit {
         break;
       case 'BUYER':
         roleHash = await this.accessControlContract.BUYER_ROLE();
+        break;
+      case 'MINTER':
+        roleHash = await this.accessControlContract.MINTER_ROLE();
         break;
       default:
         throw new Error(`Invalid role: ${role}`);

@@ -81,7 +81,7 @@ let IndexerService = IndexerService_1 = class IndexerService {
                 await this.prisma.creditBatch.update({
                     where: { id: batch.id },
                     data: {
-                        status: 'VERIFIED',
+                        status: 'MINTED',
                         verifiedAt: new Date(),
                         txHash: txHash,
                         quantity: amount,

@@ -11,7 +11,7 @@ export declare class CreditsService {
             id: string;
             onChainBatchId: string | null;
             producerId: string;
-            status: import(".prisma/client").$Enums.BatchStatus;
+            status: import("@prisma/client").$Enums.BatchStatus;
             quantity: number;
             remainingQuantity: number;
             metadataIPFSHash: string;
@@ -24,11 +24,11 @@ export declare class CreditsService {
         assetHash: string;
         nextStep: string;
     }>;
-    confirmOnChain(batchId: string, producerId: string, onChainBatchId: string, txHash: string): Promise<{
+    mintBatch(batchId: string): Promise<{
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;
@@ -41,7 +41,7 @@ export declare class CreditsService {
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;
@@ -54,7 +54,7 @@ export declare class CreditsService {
         id: string;
         onChainBatchId: string | null;
         producerId: string;
-        status: import(".prisma/client").$Enums.BatchStatus;
+        status: import("@prisma/client").$Enums.BatchStatus;
         quantity: number;
         remainingQuantity: number;
         metadataIPFSHash: string;
@@ -72,9 +72,9 @@ export declare class CreditsService {
         txHash: any;
         retirement: {
             id: string;
+            buyerId: string;
             batchId: string;
             unitsRetired: number;
-            buyerId: string;
             purpose: string | null;
             retiredAt: Date;
             onChainTxHash: string;

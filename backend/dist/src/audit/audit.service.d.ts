@@ -7,7 +7,7 @@ export declare class AuditService {
         batch: {
             id: string;
             onChainBatchId: string;
-            status: import(".prisma/client").$Enums.BatchStatus;
+            status: import("@prisma/client").$Enums.BatchStatus;
             quantity: number;
             remainingQuantity: number;
             metadataIPFSHash: string;
@@ -51,7 +51,7 @@ export declare class AuditService {
                 };
                 unitsPurchased: number;
                 totalPrice: number;
-                status: import(".prisma/client").$Enums.TransactionStatus;
+                status: import("@prisma/client").$Enums.TransactionStatus;
                 onChainTxHash: string;
             };
         } | {
@@ -72,7 +72,7 @@ export declare class AuditService {
             type: string;
             at: Date;
             details: {
-                status: import(".prisma/client").$Enums.BatchStatus;
+                status: import("@prisma/client").$Enums.BatchStatus;
                 quantity: number;
                 remainingQuantity: number;
                 metadataIPFSHash: string;
@@ -89,7 +89,7 @@ export declare class AuditService {
             type: string;
             at: Date;
             details: {
-                status: import(".prisma/client").$Enums.BatchStatus;
+                status: import("@prisma/client").$Enums.BatchStatus;
                 verifier: {
                     id: string;
                     name: string;
@@ -110,7 +110,7 @@ export declare class AuditService {
             id: string;
             name: string;
             walletAddress: string;
-            role: import(".prisma/client").$Enums.CompanyRole;
+            role: import("@prisma/client").$Enums.CompanyRole;
             kycVerified: boolean;
             createdAt: Date;
         };
@@ -120,7 +120,7 @@ export declare class AuditService {
             details: {
                 batchId: string;
                 onChainBatchId: string;
-                status: import(".prisma/client").$Enums.BatchStatus;
+                status: import("@prisma/client").$Enums.BatchStatus;
                 quantity: number;
                 remainingQuantity: number;
             };
@@ -149,7 +149,7 @@ export declare class AuditService {
                 };
                 unitsPurchased: number;
                 totalPrice: number;
-                status: import(".prisma/client").$Enums.TransactionStatus;
+                status: import("@prisma/client").$Enums.TransactionStatus;
                 onChainTxHash: string;
             };
         } | {
@@ -167,7 +167,7 @@ export declare class AuditService {
             type: string;
             at: Date;
             details: {
-                role: import(".prisma/client").$Enums.CompanyRole;
+                role: import("@prisma/client").$Enums.CompanyRole;
                 kycVerified: boolean;
             };
         })[];

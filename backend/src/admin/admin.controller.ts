@@ -33,14 +33,14 @@ export class AdminController {
     return this.adminService.getPendingBatches();
   }
 
-  @Post('batches/:id/verify')
+  @Post('batches/:id/approve')
   @Roles(CompanyRole.REGULATOR)
-  async verifyBatch(
+  async approveBatch(
     @Req() req: any,
     @Param('id') id: string,
     @Body() body: { quantity?: number },
   ) {
-    return this.adminService.verifyBatch(id, req.user.id, body?.quantity);
+    return this.adminService.approveBatch(id, req.user.id, body?.quantity);
   }
 
   @Post('batches/:id/reject')

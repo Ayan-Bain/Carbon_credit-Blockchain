@@ -47,20 +47,30 @@ let CreditsService = class CreditsService {
             batch,
             metadataHash: metadataCid,
             assetHash: fileCid,
-            nextStep: `Call submitBatch("${metadataCid}") on the CreditRegistry contract with your producer wallet, then confirm via POST /credits/batches/${batch.id}/confirm-onchain`,
+            nextStep: `Wait for a regulator to approve the credit request (Batch ID: ${batch.id}). After approval, a minter will mint the tokens on-chain.`,
         };
     }
-    async confirmOnChain(batchId, producerId, onChainBatchId, txHash) {
-        const batch = await this.prisma.creditBatch.findUnique({ where: { id: batchId } });
+    async mintBatch(batchId) {
+        const batch = await this.prisma.creditBatch.findUnique({
+            where: { id: batchId },
+            include: { producer: true }
+        });
         if (!batch)
             throw new common_1.NotFoundException('Batch not found');
-        if (batch.producerId !== producerId)
-            throw new common_1.BadRequestException('You do not own this batch');
-        if (batch.onChainBatchId)
-            throw new common_1.BadRequestException('Batch already confirmed on-chain');
+        if (batch.status !== 'APPROVED') {
+            throw new common_1.BadRequestException('Batch must be in APPROVED status before minting.');
+        }
+        if (batch.onChainBatchId) {
+            throw new common_1.BadRequestException('Batch already has an on-chain ID.');
+        }
+        const { txHash, onChainBatchId } = await this.blockchain.mintBatch(batch.producer.walletAddress, batch.metadataIPFSHash, batch.quantity);
         return this.prisma.creditBatch.update({
             where: { id: batchId },
-            data: { onChainBatchId, txHash },
+            data: {
+                status: 'MINTED',
+                onChainBatchId,
+                txHash,
+            },
         });
     }
     async getBatch(id) {
@@ -125,15 +135,25 @@ let CreditsService = class CreditsService {
             throw new common_1.BadRequestException('Not enough purchased credits available to retire for this batch');
         }
         const txHash = await this.blockchain.retireCredits(batch.onChainBatchId, buyer.walletAddress, amount);
-        const retirement = await this.prisma.retirementRecord.create({
-            data: {
-                buyerId,
-                batchId,
-                unitsRetired: amount,
-                purpose,
-                onChainTxHash: txHash,
-            },
-        });
+        const [retirement] = await this.prisma.$transaction([
+            this.prisma.retirementRecord.create({
+                data: {
+                    buyerId,
+                    batchId,
+                    unitsRetired: amount,
+                    purpose,
+                    onChainTxHash: txHash,
+                },
+            }),
+            this.prisma.creditBatch.update({
+                where: { id: batchId },
+                data: {
+                    remainingQuantity: {
+                        decrement: amount,
+                    },
+                },
+            }),
+        ]);
         return {
             status: 'Retired successfully',
             batchId,

@@ -33,12 +33,30 @@ export class MarketService {
       throw new BadRequestException('You do not own this batch');
     }
 
-    if (batch.status !== BatchStatus.VERIFIED && batch.status !== BatchStatus.LISTED) {
-      throw new BadRequestException('Only verified batches can be listed');
+    if (batch.status !== BatchStatus.MINTED && batch.status !== BatchStatus.LISTED) {
+      throw new BadRequestException('Only minted batches can be listed');
     }
 
-    if (batch.remainingQuantity < amount) {
-      throw new BadRequestException('Not enough available credits in this batch');
+    // Calculate how many units the producer still "owns" and hasn't listed yet
+    const [soldAggr, listedAggr] = await Promise.all([
+      this.prisma.transaction.aggregate({
+        where: { listing: { batchId, sellerId: producerId }, status: 'CONFIRMED' },
+        _sum: { unitsPurchased: true },
+      }),
+      this.prisma.creditListing.aggregate({
+        where: { batchId, sellerId: producerId },
+        _sum: { availableUnits: true },
+      }),
+    ]);
+
+    const totalSold = soldAggr._sum.unitsPurchased || 0;
+    const totalListed = listedAggr._sum.availableUnits || 0;
+    const availableToList = batch.quantity - totalSold - totalListed;
+
+    if (availableToList < amount) {
+      throw new BadRequestException(
+        `Not enough unallocated credits. You own ${batch.quantity - totalSold} units, but ${totalListed} are already tied up in active listings.`,
+      );
     }
 
     const listing = await this.prisma.$transaction(async (tx) => {
@@ -64,9 +82,6 @@ export class MarketService {
       await tx.creditBatch.update({
         where: { id: batchId },
         data: {
-          remainingQuantity: {
-            decrement: amount,
-          },
           status: BatchStatus.LISTED,
         },
       });
@@ -163,13 +178,27 @@ export class MarketService {
         },
       });
 
-      if (updatedListing.availableUnits === 0 && listing.batch.remainingQuantity === 0) {
-        await tx.creditBatch.update({
-          where: { id: listing.batchId },
-          data: {
-            status: BatchStatus.SOLD_OUT,
-          },
+      if (updatedListing.availableUnits === 0) {
+        // We only mark as SOLD_OUT if both the listing is empty AND the producer has nothing left to list
+        const currentListedAggr = await tx.creditListing.aggregate({
+          where: { batchId: listing.batchId, sellerId: listing.sellerId },
+          _sum: { availableUnits: true },
         });
+        const currentSoldAggr = await tx.transaction.aggregate({
+          where: { listing: { batchId: listing.batchId, sellerId: listing.sellerId }, status: 'CONFIRMED' },
+          _sum: { unitsPurchased: true },
+        });
+        
+        const remainingToProducer = listing.batch.quantity - (currentSoldAggr._sum.unitsPurchased || 0) - (currentListedAggr._sum.availableUnits || 0);
+        
+        if (remainingToProducer === 0) {
+          await tx.creditBatch.update({
+            where: { id: listing.batchId },
+            data: {
+              status: BatchStatus.SOLD_OUT,
+            },
+          });
+        }
       }
 
       return transaction;

@@ -9,7 +9,7 @@ Documentation policy: whenever an endpoint, auth rule, input shape, or response 
 | Endpoint | Method | Auth | Input Format | Notes |
 |---|---|---|---|---|
 | `/auth/nonce` | `GET` | None | No body | Returns a SIWE nonce. Nonces are kept in memory and are invalidated after server restart or successful login. |
-| `/auth/register` | `POST` | None | JSON: `name`, `walletAddress`, optional `role` | Creates a company record. `ADMIN` and `REGULATOR` cannot be self-registered. |
+| `/auth/register` | `POST` | None | JSON: `name`, `walletAddress`, optional `role` | Creates a company record. `ADMIN`, `REGULATOR`, and `MINTER` cannot be self-registered. |
 | `/auth/login` | `POST` | None | JSON: `message`, `signature` | Verifies the SIWE payload and returns `accessToken` plus the user record. JWT expiry is `1d`. |
 
 Example `POST /auth/register`
@@ -39,8 +39,8 @@ All `/admin/*` routes require a valid JWT. Role restrictions are listed below.
 |---|---|---|---|---|
 | `/admin/roles` | `POST` | `ADMIN` | JSON: `walletAddress`, `role`, `grant` | Updates both DB role and on-chain role. |
 | `/admin/promote-regulator` | `POST` | `ADMIN` | JSON: `walletAddress` | Convenience wrapper around `/admin/roles` for granting `REGULATOR`. |
-| `/admin/batches/pending` | `GET` | `REGULATOR` | No body | Lists pending batches. |
-| `/admin/batches/:id/verify` | `POST` | `REGULATOR` | Optional JSON: `quantity` | Calls the registry contract to verify the batch and updates DB status to `VERIFIED`. |
+| `/admin/batches/pending` | `GET` | `REGULATOR` | No body | Lists batches with status `PENDING`. |
+| `/admin/batches/:id/approve` | `POST` | `REGULATOR` | Optional JSON: `quantity` | Approves the credit request in the DB and sets status to `APPROVED`. |
 | `/admin/batches/:id/reject` | `POST` | `REGULATOR` | No body | Marks the batch as `REJECTED` in the DB. |
 
 Example `POST /admin/roles`
@@ -53,7 +53,7 @@ Example `POST /admin/roles`
 }
 ```
 
-Example `POST /admin/batches/:id/verify`
+Example `POST /admin/batches/:id/approve`
 
 ```json
 {
@@ -65,8 +65,8 @@ Example `POST /admin/batches/:id/verify`
 
 | Endpoint | Method | Auth | Input Format | Notes |
 |---|---|---|---|---|
-| `/credits/batches` | `POST` | JWT + `PRODUCER` | `multipart/form-data` with `file` and `quantity`; other metadata fields optional | Uploads the file to IPFS, stores metadata in IPFS, and creates a DB batch with status `PENDING`. This endpoint does not submit the batch on-chain. |
-| `/credits/batches/:id/confirm-onchain` | `POST` | JWT + `PRODUCER` | JSON: `onChainBatchId`, `txHash` | Links an existing DB batch to the producer's on-chain submission. |
+| `/credits/batches` | `POST` | JWT + `PRODUCER` | `multipart/form-data` with `file` and `quantity` | Uploads file/metadata to IPFS and creates a `PENDING` request record. |
+| `/credits/batches/:id/mint` | `POST` | JWT + `MINTER` | No body | Mints the tokens on-chain using the registry contract and sets status to `MINTED`. |
 | `/credits/batches` | `GET` | JWT | No body | Returns batches for the authenticated user ID. |
 | `/credits/batches/:id` | `GET` | None | Path param: `id` | Returns one batch by ID. |
 | `/credits/retire` | `POST` | JWT | JSON: `batchId`, `amount`, optional `purpose` | Validates that the buyer has enough purchased-but-not-yet-retired units for the batch, calls the registry contract to retire them on-chain, and stores a `RetirementRecord`. |
@@ -81,14 +81,9 @@ Example `POST /credits/batches` form-data
 | `vintage` | Text | No |
 | Any other metadata key | Text | No |
 
-Example `POST /credits/batches/:id/confirm-onchain`
+Example `POST /credits/batches/:id/mint`
 
-```json
-{
-  "onChainBatchId": "1",
-  "txHash": "0xabc..."
-}
-```
+Returns the newly created on-chain batch ID and transaction hash.
 
 Example `POST /credits/retire`
 

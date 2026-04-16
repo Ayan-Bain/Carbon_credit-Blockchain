@@ -32,20 +32,13 @@ export class CreditsController {
     return this.creditsService.submitBatch(req.user.id, file, metadata);
   }
 
-  /**
-   * After the producer calls submitBatch() on the CreditRegistry contract
-   * from their own wallet, they call this endpoint to register the
-   * on-chain batch ID in our DB so the regulator can verify it.
-   */
-  @Post('credits/batches/:id/confirm-onchain')
+  @Post('credits/batches/:id/mint')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(CompanyRole.PRODUCER)
-  async confirmOnChain(
-    @Req() req: any,
+  @Roles(CompanyRole.MINTER)
+  async mintBatch(
     @Param('id') id: string,
-    @Body() body: { onChainBatchId: string; txHash: string },
   ) {
-    return this.creditsService.confirmOnChain(id, req.user.id, body.onChainBatchId, body.txHash);
+    return this.creditsService.mintBatch(id);
   }
 
   @Get('credits/batches')
@@ -65,4 +58,3 @@ export class CreditsController {
     return this.creditsService.retireCredits(body.batchId, body.amount, req.user.id, body.purpose);
   }
 }
-

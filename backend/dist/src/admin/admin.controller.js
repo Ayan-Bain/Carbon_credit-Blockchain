@@ -37,8 +37,8 @@ let AdminController = class AdminController {
     async getPendingBatches() {
         return this.adminService.getPendingBatches();
     }
-    async verifyBatch(req, id, body) {
-        return this.adminService.verifyBatch(id, req.user.id, body?.quantity);
+    async approveBatch(req, id, body) {
+        return this.adminService.approveBatch(id, req.user.id, body?.quantity);
     }
     async rejectBatch(req, id) {
         return this.adminService.rejectBatch(id, req.user.id);
@@ -69,7 +69,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getPendingBatches", null);
 __decorate([
-    (0, common_1.Post)('batches/:id/verify'),
+    (0, common_1.Post)('batches/:id/approve'),
     (0, roles_decorator_1.Roles)(client_1.CompanyRole.REGULATOR),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -77,7 +77,7 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
-], AdminController.prototype, "verifyBatch", null);
+], AdminController.prototype, "approveBatch", null);
 __decorate([
     (0, common_1.Post)('batches/:id/reject'),
     (0, roles_decorator_1.Roles)(client_1.CompanyRole.REGULATOR),

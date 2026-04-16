@@ -11,7 +11,7 @@ export declare class AuthService {
         id: string;
         name: string;
         walletAddress: string;
-        role: import(".prisma/client").$Enums.CompanyRole;
+        role: import("@prisma/client").$Enums.CompanyRole;
         kycVerified: boolean;
         createdAt: Date;
     }>;
@@ -21,7 +21,7 @@ export declare class AuthService {
             id: string;
             name: string;
             walletAddress: string;
-            role: import(".prisma/client").$Enums.CompanyRole;
+            role: import("@prisma/client").$Enums.CompanyRole;
             kycVerified: boolean;
             createdAt: Date;
         };

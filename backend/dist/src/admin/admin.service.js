@@ -41,24 +41,21 @@ let AdminService = class AdminService {
             where: { status: 'PENDING' },
         });
     }
-    async verifyBatch(batchId, regulatorId, quantity) {
+    async approveBatch(batchId, regulatorId, quantity) {
         const batch = await this.prisma.creditBatch.findUnique({
             where: { id: batchId },
         });
         if (!batch)
             throw new common_1.NotFoundException('Batch not found');
-        if (!batch.onChainBatchId) {
-            throw new common_1.BadRequestException(`Batch "${batchId}" has no on-chain ID yet. The producer must submit it to the smart contract first.`);
-        }
+        if (batch.status !== 'PENDING')
+            throw new common_1.BadRequestException('Batch is not in PENDING status');
         const finalQuantity = quantity || batch.quantity;
-        const txHash = await this.blockchain.verifyBatch(batch.onChainBatchId, finalQuantity);
         return this.prisma.creditBatch.update({
             where: { id: batchId },
             data: {
-                status: 'VERIFIED',
+                status: 'APPROVED',
                 verifiedAt: new Date(),
                 verifiedById: regulatorId,
-                txHash: txHash,
                 quantity: finalQuantity,
                 remainingQuantity: finalQuantity,
             },

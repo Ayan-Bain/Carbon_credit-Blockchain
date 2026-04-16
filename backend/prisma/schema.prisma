@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -17,10 +18,13 @@ enum CompanyRole {
   BUYER
   BOTH
   ADMIN
+  MINTER
 }
 
 enum BatchStatus {
   PENDING
+  APPROVED
+  MINTED
   VERIFIED
   REJECTED
   LISTED

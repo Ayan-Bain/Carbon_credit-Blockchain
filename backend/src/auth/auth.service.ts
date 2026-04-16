@@ -20,8 +20,8 @@ export class AuthService {
   }
 
   async register(name: string, walletAddress: string, role?: CompanyRole) {
-    if (role === CompanyRole.ADMIN || role === CompanyRole.REGULATOR) {
-      throw new BadRequestException('Cannot register as an ADMIN or REGULATOR. These roles must be granted by an existing Admin.');
+    if (role === CompanyRole.ADMIN || role === CompanyRole.REGULATOR || role === CompanyRole.MINTER) {
+      throw new BadRequestException('Cannot register as an ADMIN, REGULATOR, or MINTER. These roles must be granted by an existing Admin.');
     }
 
     const address = walletAddress;
