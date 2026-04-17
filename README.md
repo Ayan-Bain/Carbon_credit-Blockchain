@@ -206,7 +206,7 @@ The API will be available at `http://localhost:3000`.
 
 ## 🔌 API Endpoints
 
-Full documentation: [`API_DOCUMENTATION.md`](./API_DOCUMENTATION.md)
+Full documentation: [`API_DOCUMENTATION.md`](./server/API_DOCUMENTATION.md)
 
 ### Authentication
 | Method | Endpoint | Description | Auth |
