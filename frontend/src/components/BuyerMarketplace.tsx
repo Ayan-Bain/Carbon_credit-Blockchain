@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import SideNavigation from './SideNavigation';
 import ProjectCard from './ProjectCard';
+import TransactionToast, { TransactionStatus } from './TransactionToast';
+import { useAuth } from '@/lib/auth-context';
+import api from '@/lib/api';
 
 const navItems = [
   { label: 'Dashboard', href: '/buyer', icon: '📊' },
@@ -12,208 +15,224 @@ const navItems = [
   { label: 'Settings', href: '/buyer/settings', icon: '⚙️' },
 ];
 
-const projects = [
-  {
-    id: 1,
-    title: 'Amazon Basin',
-    subtitle: 'Rainforest Reforestation',
-    category: 'Reforestation',
-    price: '$12.50/tCO2e',
-    description: 'Large-scale reforestation project in the Amazon Basin',
-    available: '50,000 tCO2e',
-    image: '🌳',
-  },
-  {
-    id: 2,
-    title: 'Punjab Landfill',
-    subtitle: 'Methane Capture',
-    category: 'Methane',
-    price: '$8.75/tCO2e',
-    description: 'Methane capture from active landfill in Punjab, India',
-    available: '18,500 tCO2e',
-    image: '♻️',
-  },
-  {
-    id: 3,
-    title: 'Sahara Wind Farm',
-    subtitle: 'Renewable Energy',
-    category: 'Wind',
-    price: '$15.00/tCO2e',
-    description: 'Wind farm development reducing coal dependency',
-    available: '75,200 tCO2e',
-    image: '💨',
-  },
-  {
-    id: 4,
-    title: 'Alpine Carbon',
-    subtitle: 'Direct Air Capture',
-    category: 'DAC',
-    price: '$25.00/tCO2e',
-    description: 'Direct air capture facility in the Swiss Alps',
-    available: '12,000 tCO2e',
-    image: '⛰️',
-  },
-  {
-    id: 5,
-    title: 'Coastal Seagrass',
-    subtitle: 'Blue Carbon',
-    category: 'Seagrass',
-    price: '$18.50/tCO2e',
-    description: 'Seagrass restoration and protection project',
-    available: '35,400 tCO2e',
-    image: '🌊',
-  },
-  {
-    id: 6,
-    title: 'Temperate Forest',
-    subtitle: 'Conservation',
-    category: 'Conservation',
-    price: '$11.00/tCO2e',
-    description: 'Old growth forest protection in North America',
-    available: '42,300 tCO2e',
-    image: '🌲',
-  },
-];
-
 export default function BuyerMarketplace() {
-  const [selectedAsset, setSelectedAsset] = useState('Amazon Rainforest Reforestation');
+  const { user } = useAuth();
+  const [listings, setListings] = useState<any[]>([]);
+  const [portfolio, setPortfolio] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Toast State
+  const [toast, setToast] = useState<{ show: boolean, status: TransactionStatus, message: string, txHash?: string }>({
+    show: false,
+    status: 'pending',
+    message: '',
+  });
+
+  const [selectedListingId, setSelectedListingId] = useState('');
   const [amount, setAmount] = useState('');
   const [purpose, setPurpose] = useState('');
 
+  const fetchData = async () => {
+    try {
+      const [listingsRes, portfolioRes] = await Promise.all([
+        api.get('/market/listings'),
+        api.get('/credits/portfolio'),
+      ]);
+      setListings(listingsRes.data);
+      setPortfolio(portfolioRes.data);
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleBuy = async (listingId: string, projectName: string, amount: number) => {
+    setToast({ 
+      show: true, 
+      status: 'pending', 
+      message: `Purchasing ${amount} credits from ${projectName}...` 
+    });
+
+    try {
+      const { data } = await api.post(`/market/listings/${listingId}/buy`, {
+        amount: amount,
+      });
+
+      setToast({ 
+        show: true, 
+        status: 'success', 
+        message: 'Purchase confirmed on-chain!', 
+        txHash: data.onChainTxHash 
+      });
+      fetchData(); // Refresh
+    } catch (err: any) {
+      setToast({ 
+        show: true, 
+        status: 'error', 
+        message: err.response?.data?.message || 'Purchase failed.' 
+      });
+    }
+  };
+
+  const handleRetire = async () => {
+    if (!selectedListingId || !amount) return;
+
+    setToast({ 
+      show: true, 
+      status: 'pending', 
+      message: 'Executing credit retirement on-chain...' 
+    });
+
+    try {
+      const { data } = await api.post('/credits/retire', {
+        batchId: selectedListingId,
+        amount: parseInt(amount),
+        purpose: purpose
+      });
+
+      setToast({ 
+        show: true, 
+        status: 'success', 
+        message: 'Credits successfully retired and burned.', 
+        txHash: data.onChainTxHash 
+      });
+      setAmount('');
+      setPurpose('');
+      fetchData();
+    } catch (err: any) {
+      setToast({ 
+        show: true, 
+        status: 'error', 
+        message: err.response?.data?.message || 'Retirement failed.' 
+      });
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-[#f4fafd]">
-      {/* Sidebar */}
       <SideNavigation items={navItems} />
 
-      {/* Main Content */}
       <main className="flex-1 ml-64 p-8">
         <div className="grid grid-cols-3 gap-8">
-          {/* Left - Marketplace */}
           <div className="col-span-2">
-            {/* Header */}
             <div className="mb-8">
               <h1 className="text-4xl font-bold text-[#012d1d] mb-2">Active Marketplace</h1>
-              <p className="text-[#717973]">Browse and purchase verified carbon credits from our registry</p>
+              <p className="text-[#717973]">Verified ecological assets available for immediate settlement</p>
             </div>
 
-            {/* Filter & Sort */}
-            <div className="flex gap-4 mb-8">
-              <input
-                type="text"
-                placeholder="Search projects..."
-                className="flex-1 px-4 py-2 border border-[#e2e9ec] rounded-lg focus:outline-none focus:border-[#6bfe9c]"
-              />
-              <select className="px-4 py-2 border border-[#e2e9ec] rounded-lg focus:outline-none focus:border-[#6bfe9c] bg-white">
-                <option>All Categories</option>
-                <option>Reforestation</option>
-                <option>Renewable Energy</option>
-                <option>Methane Capture</option>
-              </select>
-              <select className="px-4 py-2 border border-[#e2e9ec] rounded-lg focus:outline-none focus:border-[#6bfe9c] bg-white">
-                <option>Price: Low to High</option>
-                <option>Price: High to Low</option>
-                <option>Newest</option>
-              </select>
-            </div>
-
-            {/* Project Grid */}
-            <div className="grid grid-cols-2 gap-6">
-              {projects.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  image={project.image}
-                  title={project.title}
-                  subtitle={project.subtitle}
-                  category={project.category}
-                  price={project.price}
-                  description={project.description}
-                  available={project.available}
-                  onBuy={() => setSelectedAsset(project.title)}
-                />
-              ))}
-            </div>
+            {loading ? (
+              <div className="p-12 text-center text-[#717973]">Loading listings...</div>
+            ) : listings.length === 0 ? (
+              <div className="p-12 bg-white rounded-xl text-center border border-[#e2e9ec]">
+                No active listings found.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-6">
+                {listings.map((listing) => (
+                  <ProjectCard
+                    key={listing.id}
+                    image="🌳"
+                    title={listing.batch.id.slice(0, 8)}
+                    subtitle={`Producer: ${listing.seller.name}`}
+                    category="Verified Carbon"
+                    price={`$${listing.pricePerUnit}/tCO2e`}
+                    description={`On-chain batch ID: ${listing.batch.onChainBatchId}`}
+                    available={`${listing.availableUnits.toLocaleString()} tCO2e`}
+                    availableNum={listing.availableUnits}
+                    onBuy={(amount) => handleBuy(listing.id, listing.batch.id.slice(0, 8), amount)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Right - Portfolio */}
           <aside className="space-y-6">
-            {/* Portfolio Card */}
-            <div className="bg-white rounded-lg p-6 shadow-md sticky top-8">
-              <h3 className="text-lg font-bold text-[#012d1d] mb-6">My Portfolio</h3>
+            <div className="bg-white rounded-lg p-6 shadow-md sticky top-8 border border-[#e2e9ec]">
+              <h3 className="text-lg font-bold text-[#012d1d] mb-6">Retirement Desk</h3>
 
-              {/* Asset Selector */}
               <div className="mb-6">
                 <label className="text-xs font-bold text-[#414844] uppercase tracking-wider block mb-2">
-                  Retire Credits
+                  Select Asset
                 </label>
                 <select
-                  value={selectedAsset}
-                  onChange={(e) => setSelectedAsset(e.target.value)}
+                  value={selectedListingId}
+                  onChange={(e) => setSelectedListingId(e.target.value)}
                   className="w-full px-3 py-2 border border-[#e2e9ec] rounded-lg focus:outline-none focus:border-[#6bfe9c] text-[#012d1d]"
                 >
-                  <option>Amazon Rainforest Reforestation</option>
-                  <option>Renewable Energy Fund</option>
-                  <option>Conservation Portfolio</option>
+                  <option value="">Select an asset...</option>
+                  {portfolio.map(batch => (
+                    <option key={batch.id} value={batch.id}>
+                      {batch.id.slice(0, 8)} ({batch.quantity} units)
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Amount Input */}
               <div className="mb-6">
                 <label className="text-xs font-bold text-[#414844] uppercase tracking-wider block mb-2">
-                  Amount (tCO2e)
+                  Amount to Burn (tCO2e)
                 </label>
                 <input
                   type="number"
-                  placeholder="Enter amount"
+                  placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full px-3 py-2 border border-[#e2e9ec] rounded-lg focus:outline-none focus:border-[#6bfe9c]"
                 />
               </div>
 
-              {/* Purpose Input */}
               <div className="mb-6">
                 <label className="text-xs font-bold text-[#414844] uppercase tracking-wider block mb-2">
-                  Purpose
+                  Retirement Purpose
                 </label>
                 <textarea
-                  placeholder="Why are you retiring these credits?"
+                  placeholder="e.g. Q4 2025 Carbon Neutral Goal"
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
                   className="w-full px-3 py-2 border border-[#e2e9ec] rounded-lg focus:outline-none focus:border-[#6bfe9c] resize-none h-24"
                 />
               </div>
 
-              {/* Execute Button */}
-              <button className="w-full bg-gradient-to-r from-[#012d1d] to-[#1b4332] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition">
+              <button 
+                onClick={handleRetire}
+                disabled={!selectedListingId || !amount}
+                className="w-full bg-gradient-to-r from-[#012d1d] to-[#1b4332] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Execute Retirement
               </button>
             </div>
 
-            {/* Holdings Card */}
-            <div className="bg-white rounded-lg p-6 shadow-md">
-              <h4 className="font-bold text-[#012d1d] mb-4">Active Holdings</h4>
+            <div className="bg-[#f0fff4] rounded-lg p-6 border border-[#c6f6d5]">
+              <h4 className="font-bold text-[#1b4332] mb-4">Impact Summary</h4>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[#717973]">Amazon Basin</span>
-                  <span className="font-semibold text-[#012d1d]">12,500 tCO2e</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#717973]">Rainforest Conservation</span>
-                  <span className="font-semibold text-[#012d1d]">8,200 tCO2e</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#717973]">Wind Energy</span>
-                  <span className="font-semibold text-[#012d1d]">5,400 tCO2e</span>
-                </div>
-                <div className="pt-3 border-t border-[#e2e9ec] flex justify-between font-bold">
-                  <span>Total</span>
-                  <span className="text-[#6bfe9c]">26,100 tCO2e</span>
+                {portfolio.map(batch => (
+                  <div key={batch.id} className="flex justify-between">
+                    <span className="text-[#3b593f] truncate w-32">{batch.id.slice(0, 8)}</span>
+                    <span className="font-semibold text-[#1b4332]">{batch.quantity.toLocaleString()} MT</span>
+                  </div>
+                ))}
+                <div className="pt-3 border-t border-[#c6f6d5] flex justify-between font-bold text-[#1b4332]">
+                  <span>Global Balance</span>
+                  <span>{portfolio.reduce((acc, b) => acc + b.quantity, 0).toLocaleString()} MT</span>
                 </div>
               </div>
             </div>
           </aside>
         </div>
       </main>
+
+      <TransactionToast 
+        show={toast.show}
+        status={toast.status}
+        message={toast.message}
+        txHash={toast.txHash}
+        onClose={() => setToast(prev => ({ ...prev, show: false }))}
+      />
     </div>
   );
 }

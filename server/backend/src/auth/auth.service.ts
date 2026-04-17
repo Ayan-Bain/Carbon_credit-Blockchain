@@ -3,6 +3,7 @@ import { generateNonce, SiweMessage } from 'siwe';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompanyRole } from '@prisma/client';
+import { BlockchainService } from '../blockchain/blockchain.service';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +12,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly blockchainService: BlockchainService,
   ) {}
 
   generateNonce(): string {
@@ -30,6 +32,15 @@ export class AuthService {
     });
     if (company) {
       throw new UnauthorizedException('Company already registered');
+    }
+
+    // Grant role on-chain if applicable
+    if (role === CompanyRole.PRODUCER || role === CompanyRole.BUYER) {
+      try {
+        await this.blockchainService.setOnChainRole(address, role, true);
+      } catch (e) {
+        throw new BadRequestException('Failed to grant role on-chain. Check if the admin system has sufficient balance.');
+      }
     }
     
     return this.prisma.company.create({

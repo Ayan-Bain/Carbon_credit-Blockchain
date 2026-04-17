@@ -57,4 +57,10 @@ export class CreditsController {
   async retireCredits(@Req() req: any, @Body() body: { batchId: string; amount: number; purpose?: string }) {
     return this.creditsService.retireCredits(body.batchId, body.amount, req.user.id, body.purpose);
   }
+
+  @Get('credits/portfolio')
+  @UseGuards(JwtAuthGuard)
+  async getPortfolio(@Req() req: any) {
+    return this.creditsService.getBuyerPortfolio(req.user.id);
+  }
 }

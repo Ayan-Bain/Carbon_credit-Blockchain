@@ -187,4 +187,68 @@ export class CreditsService {
       retirement,
     };
   }
+
+  async getBuyerPortfolio(buyerId: string) {
+    // 1. Get all batches where the buyer has made a purchase
+    const batches = await this.prisma.creditBatch.findMany({
+      where: {
+        listings: {
+          some: {
+            transactions: {
+              some: {
+                buyerId,
+                status: 'CONFIRMED',
+              },
+            },
+          },
+        },
+      },
+      include: {
+        producer: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    // 2. Map and calculate net balance for each batch
+    const portfolio = await Promise.all(
+      batches.map(async (batch) => {
+        const [purchased, retired] = await Promise.all([
+          this.prisma.transaction.aggregate({
+            where: {
+              buyerId,
+              status: 'CONFIRMED',
+              listing: { batchId: batch.id },
+            },
+            _sum: { unitsPurchased: true },
+          }),
+          this.prisma.retirementRecord.aggregate({
+            where: {
+              buyerId,
+              batchId: batch.id,
+            },
+            _sum: { unitsRetired: true },
+          }),
+        ]);
+
+        const purchasedUnits = purchased._sum.unitsPurchased ?? 0;
+        const retiredUnits = retired._sum.unitsRetired ?? 0;
+        const balance = purchasedUnits - retiredUnits;
+
+        return {
+          id: batch.id,
+          onChainBatchId: batch.onChainBatchId,
+          producerName: batch.producer.name,
+          quantity: balance,
+          metadataIPFSHash: batch.metadataIPFSHash,
+          submittedAt: batch.submittedAt,
+        };
+      }),
+    );
+
+    // 3. Filter out zero balances
+    return portfolio.filter((item) => item.quantity > 0);
+  }
 }

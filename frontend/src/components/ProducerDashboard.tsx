@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import SideNavigation from './SideNavigation';
 import StatCard from './StatCard';
 import BatchCard from './BatchCard';
+import { useAuth } from '@/lib/auth-context';
+import api from '@/lib/api';
 
 const navItems = [
   { label: 'Dashboard', href: '/producer', icon: '📊', active: true },
@@ -12,149 +15,131 @@ const navItems = [
   { label: 'Audit Trail', href: '/producer/audit', icon: '📋' },
 ];
 
-const assetCards = [
-  {
-    id: 1,
-    title: 'Amazon Basin Core',
-    category: 'Reforestation',
-    location: 'Brazil',
-    image: '🌳',
-  },
-  {
-    id: 2,
-    title: 'Old Growth Sanctuary',
-    category: 'Conservation',
-    location: 'Pacific Northwest',
-    image: '🌲',
-  },
-  {
-    id: 3,
-    title: 'Temperate Ridge Project',
-    category: 'Afforestation',
-    location: 'Oregon, USA',
-    image: '⛰️',
-  },
-  {
-    id: 4,
-    title: 'Alpine Sequestration',
-    category: 'Carbon Capture',
-    location: 'Swiss Alps',
-    image: '🏔️',
-  },
-];
-
 export default function ProducerDashboard() {
+  const { user, login, logout, address } = useAuth();
+  const [batches, setBatches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const fetchBatches = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/credits/batches');
+      setBatches(data);
+    } catch (err) {
+      console.error('Failed to fetch batches:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchBatches();
+    }
+  }, [user]);
+
+  const totalCredits = batches.reduce((acc, b) => acc + (b.quantity || 0), 0);
+  const pendingBatches = batches.filter(b => b.status === 'PENDING').length;
+  const verifiedCredits = batches
+    .filter(b => b.status === 'VERIFIED' || b.status === 'MINTED')
+    .reduce((acc, b) => acc + (b.quantity || 0), 0);
+
   return (
     <div className="flex min-h-screen bg-[#f4fafd]">
-      {/* Sidebar */}
       <SideNavigation items={navItems} />
 
-      {/* Main Content */}
       <main className="flex-1 ml-64 p-8">
-        {/* Header */}
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-bold text-[#012d1d] mb-2">Producer Dashboard</h1>
-            <p className="text-[#717973]">Manage your carbon credit submissions and portfolio</p>
+            <p className="text-[#717973]">Welcome back, {user?.name || 'Producer'}</p>
           </div>
           <div className="flex items-center gap-4">
-            <button className="px-6 py-2 bg-white border border-[#e2e9ec] rounded-lg font-semibold text-[#012d1d] hover:bg-[#f4fafd] transition">
-              👤 Profile
-            </button>
-            <button className="px-6 py-2 bg-[#6bfe9c] text-[#012d1d] rounded-lg font-semibold hover:bg-[#5ae88a] transition">
-              💳 Connect Wallet
-            </button>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="px-6 py-2 bg-[#6bfe9c] text-[#012d1d] rounded-lg font-semibold hover:bg-[#5ae88a] transition flex items-center gap-2"
+                >
+                  <span className="text-lg">+</span> New Submission
+                </button>
+                <button 
+                  onClick={logout}
+                  className="px-6 py-2 bg-white border border-[#e2e9ec] rounded-lg font-semibold text-[#012d1d] hover:bg-[#f4fafd] transition"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={login}
+                className="px-6 py-2 bg-[#6bfe9c] text-[#012d1d] rounded-lg font-semibold hover:bg-[#5ae88a] transition"
+              >
+                Connect Wallet
+              </button>
+            )}
+            {address && (
+              <span className="text-xs font-mono bg-white px-3 py-2 rounded-lg border border-[#e2e9ec]">
+                {address.slice(0, 6)}...{address.slice(-4)}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-6 mb-10">
           <StatCard
-            label="Total Assets"
-            value="12,840.50"
-            subtext="tCO2e Carbon Credits"
+            label="Total Registered"
+            value={totalCredits.toLocaleString()}
+            subtext="Total units submitted"
             icon="📈"
           />
           <StatCard
             label="In Review"
-            value="3"
+            value={pendingBatches.toString()}
             subtext="Pending Verification"
             icon="⏳"
           />
           <StatCard
-            label="Available to List"
-            value="8,420.75"
+            label="Verified Credits"
+            value={verifiedCredits.toLocaleString()}
             subtext="Ready for Marketplace"
             icon="✓"
           />
         </div>
 
-        {/* My Batches */}
         <section className="mb-10">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-[#012d1d] mb-2">My Batches</h2>
-            <p className="text-[#717973]">Recent submissions and their verification status</p>
+          <div className="mb-6 flex justify-between items-end">
+            <div>
+              <h2 className="text-2xl font-bold text-[#012d1d] mb-2">My Batches</h2>
+              <p className="text-[#717973]">Recent submissions and their status</p>
+            </div>
+            <button className="text-[#1b4332] font-semibold hover:underline">View All</button>
           </div>
 
           <div className="grid gap-4">
-            <BatchCard
-              projectName="Amazon Basin Reforestation"
-              location="Brazil"
-              quantity="2,500 tCO2e"
-              status="approved"
-              submissionDate="2025-03-15"
-              actions={[{ label: 'Mint Asset', onClick: () => {} }]}
-            />
-            <BatchCard
-              projectName="Punjab Landfill Methane Capture"
-              location="India"
-              quantity="1,800 tCO2e"
-              status="pending"
-              submissionDate="2025-04-10"
-              actions={[
-                { label: 'View Details', onClick: () => {} },
-                { label: 'Upload Proofs', onClick: () => {} },
-              ]}
-            />
-            <BatchCard
-              projectName="Sahara Wind Farm Phase II"
-              location="Morocco"
-              quantity="3,200 tCO2e"
-              status="minted"
-              submissionDate="2025-02-28"
-              actions={[
-                { label: 'List for Sale', onClick: () => {} },
-                { label: 'View on Chain', onClick: () => {} },
-              ]}
-            />
-          </div>
-        </section>
-
-        {/* Registered Assets */}
-        <section>
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-[#012d1d] mb-2">Registered Assets</h2>
-            <p className="text-[#717973]">Your verified carbon credit projects</p>
-          </div>
-
-          <div className="grid grid-cols-4 gap-6">
-            {assetCards.map((asset) => (
-              <div
-                key={asset.id}
-                className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all"
-              >
-                <div className="h-32 bg-gradient-to-br from-[#1b4332] to-[#012d1d] flex items-center justify-center text-5xl">
-                  {asset.image}
-                </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-[#012d1d] mb-1">{asset.title}</h3>
-                  <p className="text-sm text-[#717973] mb-2">{asset.location}</p>
-                  <span className="text-xs font-bold bg-[#e3f2fd] text-[#1565c0] px-2 py-1 rounded">
-                    {asset.category}
-                  </span>
-                </div>
+            {loading ? (
+              <div className="p-12 text-center text-[#717973]">Loading your batches...</div>
+            ) : batches.length === 0 ? (
+              <div className="p-12 text-center bg-white rounded-xl border border-dashed border-[#ccd4d8] text-[#717973]">
+                No batches found. Start by submitting your first environmental project.
               </div>
-            ))}
+            ) : (
+              batches.map((batch) => (
+                <BatchCard
+                  key={batch.id}
+                  projectName={batch.id.slice(0, 8)} // Fallback if name missing
+                  location="Global" // Placeholder
+                  quantity={`${batch.quantity.toLocaleString()} tCO2e`}
+                  status={batch.status.toLowerCase()}
+                  submissionDate={new Date(batch.submittedAt).toLocaleDateString()}
+                  actions={[
+                    { label: 'View Details', onClick: () => console.log('Details', batch.id) },
+                    ...(batch.status === 'VERIFIED' ? [{ label: 'List for Sale', onClick: () => {} }] : [])
+                  ]}
+                />
+              ))
+            )}
           </div>
         </section>
       </main>

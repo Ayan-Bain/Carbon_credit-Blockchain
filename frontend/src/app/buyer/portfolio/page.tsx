@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import BuyerMarketplace from '@/components/BuyerMarketplace';
+import BuyerPortfolio from '@/components/BuyerPortfolio';
 
-export default function BuyerPage() {
+export default function BuyerPortfolioPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -16,8 +16,8 @@ export default function BuyerPage() {
   }, [user, loading, router]);
 
   if (loading || !user || user.role !== 'BUYER') {
-    return null; // Or a spinner
+    return null;
   }
 
-  return <BuyerMarketplace />;
+  return <BuyerPortfolio />;
 }

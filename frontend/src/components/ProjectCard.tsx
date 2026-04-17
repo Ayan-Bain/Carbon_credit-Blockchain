@@ -1,4 +1,4 @@
-'use client';
+import { useState } from 'react';
 
 interface ProjectCardProps {
   image: string;
@@ -8,7 +8,8 @@ interface ProjectCardProps {
   price: string;
   description: string;
   available: string;
-  onBuy: () => void;
+  availableNum: number;
+  onBuy: (amount: number) => void;
 }
 
 export default function ProjectCard({
@@ -19,52 +20,73 @@ export default function ProjectCard({
   price,
   description,
   available,
+  availableNum,
   onBuy,
 }: ProjectCardProps) {
+  const [amount, setAmount] = useState(1);
+
   return (
-    <div className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all">
-      {/* Image */}
+    <div className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all border border-[#e2e9ec]">
+      {/* ... (image section unchanged) */}
       <div className="relative h-40 bg-gradient-to-br from-[#1b4332] to-[#012d1d] flex items-center justify-center text-white text-3xl">
-        <img
-          src={image}
-          alt={title}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
-        />
-        <span className="absolute text-5xl">🌲</span>
+        <span className="text-5xl">🌲</span>
       </div>
 
-      {/* Content */}
       <div className="p-4">
+        {/* ... (header section unchanged) */}
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-bold text-[#012d1d]">{title}</h3>
-          <span className="text-xs font-bold bg-[#e3f2fd] text-[#1565c0] px-2 py-1 rounded">
+          <span className="text-xs font-bold bg-[#f0fff4] text-[#1b4332] px-2 py-1 rounded">
             {category}
           </span>
         </div>
 
         <p className="text-sm text-[#717973] mb-3">{subtitle}</p>
-        <p className="text-xs text-[#717973] line-clamp-2 mb-3">{description}</p>
+        <p className="text-xs text-[#717973] line-clamp-2 mb-3 leading-relaxed">{description}</p>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-3 mb-6 bg-[#f4fafd] p-3 rounded-lg border border-[#e2e9ec]">
           <div>
-            <p className="text-xs text-[#717973] font-bold uppercase">Price</p>
+            <p className="text-[10px] text-[#717973] font-bold uppercase tracking-wider">Price/tCO2e</p>
             <p className="font-bold text-[#012d1d]">{price}</p>
           </div>
           <div>
-            <p className="text-xs text-[#717973] font-bold uppercase">Available</p>
+            <p className="text-[10px] text-[#717973] font-bold uppercase tracking-wider">Remaining</p>
             <p className="font-bold text-[#012d1d]">{available}</p>
           </div>
         </div>
 
-        <button
-          onClick={onBuy}
-          className="w-full bg-gradient-to-r from-[#012d1d] to-[#1b4332] text-white py-2 rounded-lg font-semibold text-sm hover:shadow-lg transition-all"
-        >
-          Buy Credits
-        </button>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center border border-[#c1c8c2] rounded-lg">
+              <button 
+                onClick={() => setAmount(Math.max(1, amount - 1))}
+                className="px-3 py-2 text-[#012d1d] hover:bg-gray-50 transition font-bold"
+              >
+                -
+              </button>
+              <input 
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(Math.min(availableNum, Math.max(1, parseInt(e.target.value) || 1)))}
+                className="w-full text-center border-x border-[#c1c8c2] py-2 focus:outline-none font-bold text-[#012d1d]"
+              />
+              <button 
+                onClick={() => setAmount(Math.min(availableNum, amount + 1))}
+                className="px-3 py-2 text-[#012d1d] hover:bg-gray-50 transition font-bold"
+              >
+                +
+              </button>
+            </div>
+            <p className="text-xs font-bold text-[#717973]">tCO2e</p>
+          </div>
+
+          <button
+            onClick={() => onBuy(amount)}
+            className="w-full bg-gradient-to-r from-[#012d1d] to-[#1b4332] text-white py-3 rounded-lg font-bold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all"
+          >
+            Buy {amount} Credits
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -7,7 +7,12 @@ const config: Config = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        'manrope': ['Manrope', 'sans-serif'],
+        'inter': ['Inter', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
 }

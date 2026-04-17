@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { getAddress } from 'ethers';
+import { useAuth } from '@/lib/auth-context';
+import api from '@/lib/api';
 
 // Image constants (hosted on localhost during development)
 const imgBgTexture = 'http://localhost:3845/assets/0ed93b4ee06b1a2be6f6a1da965bae9a88cbfba5.png';
@@ -21,14 +24,61 @@ const imgArrowIcon = 'http://localhost:3845/assets/a863a47b17f54001aaa551fc82067
 const imgHelpIcon = 'http://localhost:3845/assets/e63a9d30a9e2a1b3db1b8ddee7b93948000d703b.svg';
 
 export default function AuthRegistration() {
+  const { login } = useAuth();
   const [fullName, setFullName] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [role, setRole] = useState('');
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSiwe = async () => {
+    setIsLoggingIn(true);
+    try {
+      await login();
+      // Redirect happens in page.tsx via useEffect
+    } catch (err) {
+      console.error('Login error:', err);
+      alert('Login failed. Ensure your wallet is connected to the correct network.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ fullName, walletAddress, role });
+    if (!role || !fullName || !walletAddress) {
+      alert('Please fill in all fields including role.');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      const normalizedWalletAddress = getAddress(walletAddress.trim());
+
+      // 1. Register the entity in the backend
+      await api.post('/auth/register', {
+        name: fullName.trim(),
+        walletAddress: normalizedWalletAddress,
+        role: role,
+      });
+
+      setWalletAddress(normalizedWalletAddress);
+      
+      // 2. Automatically trigger SIWE login after registration
+      await handleSiwe();
+    } catch (err: any) {
+      console.error('Registration failed:', err);
+      alert(err.response?.data?.message || err.message || 'Registration failed. The entity may already exist.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const roleLabels: Record<string, string> = {
+    'PRODUCER': 'Producer',
+    'REGULATOR': 'Verifier (Regulator)',
+    'BUYER': 'Corporate Buyer',
+    'ADMIN': 'System Administrator'
   };
 
   return (
@@ -138,10 +188,14 @@ export default function AuthRegistration() {
 
               <button
                 type="button"
-                className="w-full bg-white border border-[#c1c8c2] rounded-lg shadow-sm px-6 py-4 flex items-center justify-center gap-3 hover:bg-gray-50 transition"
+                onClick={handleSiwe}
+                disabled={isLoggingIn}
+                className="w-full bg-white border border-[#c1c8c2] rounded-lg shadow-sm px-6 py-4 flex items-center justify-center gap-3 hover:bg-gray-50 transition disabled:opacity-50"
               >
                 <img alt="MetaMask" className="w-6 h-6" src={imgMetaMask} />
-                <span className="font-semibold text-[#161d1f]">Sign-In with Ethereum</span>
+                <span className="font-semibold text-[#161d1f]">
+                  {isLoggingIn ? 'Connecting...' : 'Sign-In with Ethereum'}
+                </span>
                 <img alt="arrow" className="w-5 h-3.5" src={imgArrowIcon} />
               </button>
 
@@ -211,23 +265,23 @@ export default function AuthRegistration() {
                     onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
                     className="w-full bg-white border border-[#c1c8c2] rounded-lg pl-12 pr-4 py-4 text-left font-medium text-[#161d1f] placeholder-[#c1c8c2] focus:outline-none focus:border-[#6bfe9c] transition shadow-sm flex items-center justify-between"
                   >
-                    <span>{role || 'Select your role'}</span>
+                    <span>{role ? roleLabels[role] : 'Select your role'}</span>
                     <img alt="dropdown" className="w-3 h-[7.4px]" src={imgDropdownIcon} />
                   </button>
 
                   {isRoleDropdownOpen && (
                     <div className="absolute top-full mt-1 w-full bg-white border border-[#c1c8c2] rounded-lg shadow-lg z-10">
-                      {['Project Developer', 'Verifier', 'Buyer', 'Registry Administrator'].map((option) => (
+                      {Object.keys(roleLabels).map((key) => (
                         <button
-                          key={option}
+                          key={key}
                           type="button"
                           onClick={() => {
-                            setRole(option);
+                            setRole(key);
                             setIsRoleDropdownOpen(false);
                           }}
                           className="w-full px-4 py-3 text-left hover:bg-[#f4fafd] border-b border-[#e2e9ec] last:border-b-0 transition"
                         >
-                          {option}
+                          {roleLabels[key]}
                         </button>
                       ))}
                     </div>
@@ -248,9 +302,13 @@ export default function AuthRegistration() {
             {/* Footer Links */}
             <p className="text-center text-sm text-[#414844] mt-8">
               Already have an account?{' '}
-              <a href="#" className="font-semibold text-[#13bf66] hover:underline">
-                Log In
-              </a>
+              <button 
+                onClick={handleSiwe}
+                disabled={isLoggingIn}
+                className="font-semibold text-[#13bf66] hover:underline disabled:opacity-50"
+              >
+                {isLoggingIn ? 'Logging in...' : 'Log In'}
+              </button>
             </p>
           </div>
         </div>
