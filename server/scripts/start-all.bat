@@ -8,6 +8,8 @@ set "BACKEND_DIR=%ROOT_DIR%\backend"
 set "BACKEND_ENV=%BACKEND_DIR%\.env"
 set "DEPLOY_LOG=%TEMP%\carbon-credit-deploy.log"
 set "RPC_URL=http://127.0.0.1:8545"
+set "LOCAL_ADMIN_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+set "LOCAL_ADMIN_WALLET_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 
 echo [1/5] Starting local Hardhat node...
 start "Carbon Credit - Hardhat Node" cmd /k "cd /d ""%BLOCKCHAIN_DIR%"" && npx hardhat node"
@@ -44,9 +46,25 @@ if errorlevel 1 (
 )
 popd >nul
 
-echo [5/5] Normalizing backend environment and starting backend + Prisma Studio...
+echo [5/5] Normalizing backend environment...
 call :normalize_backend_env
 if errorlevel 1 exit /b 1
+
+echo.
+set /p RESURRECT="Would you like to resurrect previous blockchain data from the database? (y/n): "
+if /i "%RESURRECT%"=="y" (
+  echo [6/5] Resurrecting blockchain data...
+  pushd "%BACKEND_DIR%" >nul
+  call npm run resurrect
+  if errorlevel 1 (
+    popd >nul
+    echo Resurrection failed.
+    exit /b 1
+  )
+  popd >nul
+)
+
+echo [7/5] Starting backend + Prisma Studio...
 start "Carbon Credit - Backend + Prisma Studio" cmd /k ""%ROOT_DIR%\scripts\start-backend-with-studio.bat""
 
 echo.
@@ -106,6 +124,8 @@ powershell -NoProfile -Command ^
   "$pairs = @{" ^
   "  'ACCESS_CONTROL_ADDRESS' ='%ACCESS_CONTROL_ADDRESS%';" ^
   "  'REGISTRY_ADDRESS' ='%REGISTRY_ADDRESS%';" ^
+  "  'ADMIN_PRIVATE_KEY' ='%LOCAL_ADMIN_PRIVATE_KEY%';" ^
+  "  'ADMIN_WALLET_ADDRESS' ='%LOCAL_ADMIN_WALLET_ADDRESS%';" ^
   "};" ^
   "foreach ($key in $pairs.Keys) {" ^
   "  $value = $pairs[$key].Trim();" ^
@@ -126,6 +146,7 @@ if errorlevel 1 (
 echo Updated backend\.env
 echo   ACCESS_CONTROL_ADDRESS=%ACCESS_CONTROL_ADDRESS%
 echo   REGISTRY_ADDRESS=%REGISTRY_ADDRESS%
+echo   ADMIN_WALLET_ADDRESS=%LOCAL_ADMIN_WALLET_ADDRESS%
 if defined TOKEN_ADDRESS echo   TOKEN_ADDRESS=%TOKEN_ADDRESS%
 
 exit /b 0
