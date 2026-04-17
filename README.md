@@ -326,4 +326,4 @@ npx hardhat compile                                       # Compile contracts
 
 ## 📄 License
 
-UNLICENSED — Private project.
+MIT LICENSE — [VIEW LICENSE](./LICENSE)
