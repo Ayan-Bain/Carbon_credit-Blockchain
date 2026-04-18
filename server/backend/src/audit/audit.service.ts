@@ -341,4 +341,38 @@ export class AuditService {
       quarterlyGrowth: '+0%', // Placeholder
     };
   }
+
+  async findActionByHash(hash: string) {
+    const cleanHash = hash.trim();
+    if (!cleanHash) throw new NotFoundException('Hash is required');
+
+    // 1. Search in CreditBatches (Approval/Minting)
+    const batchByHash = await this.prisma.creditBatch.findFirst({
+      where: { txHash: cleanHash },
+      select: { id: true, producerId: true },
+    });
+    if (batchByHash) {
+      return { type: 'batch', id: batchByHash.id };
+    }
+
+    // 2. Search in Transactions (Purchase)
+    const transactionByHash = await this.prisma.transaction.findFirst({
+      where: { onChainTxHash: cleanHash },
+      include: { listing: { select: { batchId: true } } },
+    });
+    if (transactionByHash) {
+      return { type: 'batch', id: transactionByHash.listing.batchId };
+    }
+
+    // 3. Search in RetirementRecords (Retirement)
+    const retirementByHash = await this.prisma.retirementRecord.findFirst({
+      where: { onChainTxHash: cleanHash },
+      select: { batchId: true },
+    });
+    if (retirementByHash) {
+      return { type: 'batch', id: retirementByHash.batchId };
+    }
+
+    throw new NotFoundException('No records found matching this transaction hash.');
+  }
 }

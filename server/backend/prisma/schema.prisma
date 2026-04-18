@@ -65,6 +65,8 @@ model CreditBatch {
   quantity          Int         // Total credit units
   remainingQuantity Int
   metadataIPFSHash  String      // Pointer to off-chain docs
+  mintingPermit     String?     // Cryptographic proof from regulator
+  verificationHash  String?     // Hash that was signed by regulator
   
   submittedAt       DateTime    @default(now())
   verifiedAt        DateTime?

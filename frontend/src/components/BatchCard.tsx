@@ -8,7 +8,7 @@ interface BatchCardProps {
   quantity: string;
   totalVolume: number;
   alreadyListedVolume: number;
-  status: 'minted' | 'pending' | 'approved' | 'verified' | 'listing' | 'listed' | 'sold_out' | 'rejected';
+  status: 'minted' | 'pending' | 'approved' | 'verified' | 'listing' | 'listed' | 'sold_out' | 'rejected' | 'verified';
   submissionDate: string;
   actions?: { label: string; onClick: () => void }[];
   onList?: (batchId: string, quantity: number, price: number) => Promise<void>;
@@ -43,7 +43,7 @@ export default function BatchCard({
   const [isListing, setIsListing] = useState(false);
 
   const remainingToList = (totalVolume || 0) - (alreadyListedVolume || 0);
-  const canListMore = remainingToList > 0 && (status === 'minted' || status === 'listed');
+  const canListMore = remainingToList > 0 && (status === 'minted' || status === 'listed' || status === 'verified');
 
   const handleListSubmit = async () => {
     if (!batchId || !onList) return;

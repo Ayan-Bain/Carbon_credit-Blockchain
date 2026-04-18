@@ -20,9 +20,9 @@ export default function MintingQueueDashboard() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ show: boolean, status: TransactionStatus, message: string, txHash?: string }>({
     show: false,
-    status: 'pending',
     message: '',
   });
+  const [securityDetails, setSecurityDetails] = useState<any>(null);
 
   const fetchApproved = async () => {
     try {
@@ -51,6 +51,7 @@ export default function MintingQueueDashboard() {
       status: 'pending',
       message: 'Submitting mint transaction to blockchain...',
     });
+    setSecurityDetails(null);
 
     try {
       const { data } = await api.post(`/credits/batches/${batchId}/mint`);
@@ -64,13 +65,28 @@ export default function MintingQueueDashboard() {
 
       // Remove from queue
       setBatches(prev => prev.filter(b => b.id !== batchId));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Minting failed:', err);
-      setToast({
-        show: true,
-        status: 'error',
-        message: 'Minting execution failed. Please verify network status.',
-      });
+      
+      const errorData = err.response?.data;
+      if (errorData?.error === 'SECURITY_MISMATCH') {
+        setSecurityDetails({
+          regulatorHash: errorData.regulatorHash,
+          unauthorizedHash: errorData.unauthorizedHash,
+          quantity: errorData.currentQuantity,
+        });
+        setToast({
+          show: true,
+          status: 'security_mismatch',
+          message: errorData.message,
+        });
+      } else {
+        setToast({
+          show: true,
+          status: 'error',
+          message: errorData?.message || 'Minting execution failed. Please verify network status.',
+        });
+      }
     }
   };
 
@@ -232,9 +248,10 @@ export default function MintingQueueDashboard() {
 
       <TransactionToast 
         show={toast.show}
-        status={toast.status}
+        status={toast.status as any}
         message={toast.message}
         txHash={toast.txHash}
+        securityDetails={securityDetails}
         onClose={() => setToast(prev => ({ ...prev, show: false }))}
       />
     </div>

@@ -12,7 +12,7 @@ export default function UnifiedAuditTrailPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchScope, setSearchScope] = useState<'company' | 'batch'>('batch');
+  const [searchScope, setSearchScope] = useState<'company' | 'batch' | 'tx'>('batch');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -32,9 +32,16 @@ export default function UnifiedAuditTrailPage() {
       if (searchScope === 'batch') {
         await api.get(`/credits/batches/${query}`);
         router.push(`/batches/${query}`);
-      } else {
+      } else if (searchScope === 'company') {
         await api.get(`/auth/company/${query}`);
         router.push(`/audit/company/${query}`);
+      } else {
+        const { data } = await api.get(`/audit/tx/${query}`);
+        if (data.type === 'batch') {
+          router.push(`/batches/${data.id}`);
+        } else {
+          router.push(`/audit/company/${data.id}`);
+        }
       }
     } catch (err: any) {
       const message = err.response?.status === 404
@@ -144,6 +151,16 @@ export default function UnifiedAuditTrailPage() {
               >
                 Company ID
               </button>
+              <button
+                onClick={() => setSearchScope('tx')}
+                className={`px-8 py-3 rounded-full text-sm font-bold transition-all ${
+                  searchScope === 'tx' 
+                  ? 'bg-[#1b4332] text-white shadow-lg scale-105' 
+                  : 'bg-[#f4fafd] text-[#717973] border border-[#e2e9ec] hover:bg-gray-100'
+                }`}
+              >
+                Tx Hash
+              </button>
             </div>
 
             <div className="relative group">
@@ -152,7 +169,11 @@ export default function UnifiedAuditTrailPage() {
                 value={searchQuery}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={searchScope === 'batch' ? "Enter batch UUID (e.g. 3477...)" : "Enter company UUID (e.g. ab27...)"}
+                placeholder={
+                  searchScope === 'batch' ? "Enter batch UUID (e.g. 3477...)" : 
+                  searchScope === 'company' ? "Enter company UUID (e.g. ab27...)" :
+                  "Enter transaction hash (0x...)"
+                }
                 className="w-full bg-[#f4fafd] border-2 border-[#e2e9ec] rounded-[24px] px-8 py-5 text-[#012d1d] font-semibold text-lg focus:border-[#6bfe9c] focus:outline-none transition-all placeholder:text-[#ccd4d8]"
               />
               <button
@@ -175,8 +196,8 @@ export default function UnifiedAuditTrailPage() {
                 <p className="text-sm text-[#717973]">Complete project documentation from start to finish.</p>
               </div>
               <div className="p-6 bg-[#f9fbfc] rounded-3xl border border-[#e2e9ec]">
-                <p className="text-xs font-bold text-[#1b4332] uppercase tracking-widest mb-1">Company Activity</p>
-                <p className="text-sm text-[#717973]">Trace purchase history and ownership compliance across roles.</p>
+                <p className="text-xs font-bold text-[#1b4332] uppercase tracking-widest mb-1">On-Chain Proofs</p>
+                <p className="text-sm text-[#717973]">Locate actions directly using blockchain transaction identifiers.</p>
               </div>
             </div>
           </div>

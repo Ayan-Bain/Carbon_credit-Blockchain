@@ -14,11 +14,12 @@ export class BlockchainService implements OnModuleInit {
   private readonly PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY; // Regulator/Admin private key
 
   private readonly REGISTRY_ABI = [
-    'function mintBatch(address _producer, string memory _metadataHash, uint256 _quantity) external returns (uint256)',
+    'function mintBatch(address _producer, string memory _metadataHash, uint256 _quantity, bytes memory _signature) external returns (uint256)',
     'function verifyBatch(uint256 _batchId, uint256 _quantity) external',
     'function transferCredits(uint256 _batchId, address _from, address _to, uint256 _amount) external',
     'function retireCredits(uint256 _batchId, address _account, uint256 _amount) external',
     'function batches(uint256) view returns (uint256 id, address producer, string metadataHash, uint256 quantity, uint256 submittedAt, bool verified)',
+    'function totalRetiredUnits() view returns (uint256)',
     'event BatchSubmitted(uint256 indexed batchId, address indexed producer, string metadataHash)',
     'event BatchVerified(uint256 indexed batchId, address indexed producer, uint256 amount)',
     'event CreditsTransferred(uint256 indexed batchId, address indexed from, address indexed to, uint256 amount)',
@@ -61,7 +62,7 @@ export class BlockchainService implements OnModuleInit {
     );
   }
 
-  async mintBatch(producerWallet: string, metadataHash: string, quantity: number) {
+  async mintBatch(producerWallet: string, metadataHash: string, quantity: number, signature: string) {
     this.ensureContractsReady();
     this.logger.log(`Invoking mintBatch for producer ${producerWallet}, hash ${metadataHash}, quantity ${quantity}`);
 
@@ -71,6 +72,7 @@ export class BlockchainService implements OnModuleInit {
       normalizedProducer,
       metadataHash,
       BigInt(quantity),
+      signature,
     );
     this.logger.log(`Mint transaction sent: ${tx.hash}`);
     const receipt = await tx.wait();
@@ -162,6 +164,45 @@ export class BlockchainService implements OnModuleInit {
     this.logger.log(`Transfer transaction sent: ${tx.hash}`);
     await tx.wait();
     return tx.hash;
+  }
+
+  /**
+   * @dev Generates a cryptographic signature that proves a regulator approved a specific quantity.
+   * This is used to prevent DB tampering between approval and minting.
+   */
+  async signMintingPermit(producerWallet: string, metadataHash: string, quantity: number) {
+    const normalizedProducer = this.normalizeAddress(producerWallet, 'producer wallet');
+    
+    // 1. Pack the data to match Solidity's keccak256(abi.encodePacked(...))
+    const messageHash = ethers.solidityPackedKeccak256(
+      ['address', 'string', 'uint256'],
+      [normalizedProducer, metadataHash, BigInt(quantity)]
+    );
+
+    // 2. Sign the hash (ethers automatically adds the Ethereum Signed Message prefix)
+    const signature = await this.wallet.signMessage(ethers.getBytes(messageHash));
+    return { signature, messageHash };
+  }
+
+  getMintingHash(producerWallet: string, metadataHash: string, quantity: number) {
+    const normalizedProducer = this.normalizeAddress(producerWallet, 'producer wallet');
+    return ethers.solidityPackedKeccak256(
+      ['address', 'string', 'uint256'],
+      [normalizedProducer, metadataHash, BigInt(quantity)]
+    );
+  }
+
+  async getOnChainTotals() {
+    this.ensureContractsReady();
+    try {
+      const retired = await this.registryContract.totalRetiredUnits();
+      return {
+        totalRetired: Number(retired),
+      };
+    } catch (err) {
+      this.logger.error('Failed to fetch on-chain totals:', err);
+      return { totalRetired: 0 };
+    }
   }
 
   async setOnChainRole(walletAddress: string, role: string, grant: boolean) {

@@ -1,0 +1,2 @@
+-- AlterEnum
+-- Neutralized duplicate migration for 'MINTER' role.

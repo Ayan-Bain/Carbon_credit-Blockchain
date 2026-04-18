@@ -131,6 +131,7 @@ export default function BatchDetailPage() {
       case 'PENDING': return 'text-[#ff9800]';
       case 'APPROVED': return 'text-[#13bf66]';
       case 'MINTED': return 'text-[#13bf66]';
+      case 'VERIFIED': return 'text-[#13bf66]';
       case 'LISTED': return 'text-[#3b82f6]';
       default: return 'text-[#13bf66]';
     }
@@ -180,7 +181,9 @@ export default function BatchDetailPage() {
           <div className="bg-white p-6 rounded-[32px] border border-[#e2e9ec] shadow-sm">
             <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest mb-3">Registry Record ID</p>
             <div className="flex items-center justify-between">
-              <p className="text-2xl font-black text-[#136d3a]">#{batch?.onChainBatchId || 'PEND'}</p>
+              <p className={`text-2xl font-black ${batch?.onChainBatchId ? 'text-[#136d3a]' : 'text-[#717973] opacity-40 text-sm italic'}`}>
+                {batch?.onChainBatchId ? `#${batch.onChainBatchId}` : 'Awaiting On-Chain Minting'}
+              </p>
               <div className="w-10 h-10 bg-[#f4fafd] rounded-full flex items-center justify-center text-[#136d3a] font-bold">⛓️</div>
             </div>
           </div>

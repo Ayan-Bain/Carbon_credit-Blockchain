@@ -6,9 +6,10 @@ import { CreditsModule } from './credits/credits.module';
 import { AdminModule } from './admin/admin.module';
 import { MarketModule } from './market/market.module';
 import { AuditModule } from './audit/audit.module';
+import { IntegrityModule } from './integrity/integrity.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, BlockchainSyncModule, CreditsModule, AdminModule, MarketModule, AuditModule],
+  imports: [PrismaModule, AuthModule, BlockchainSyncModule, CreditsModule, AdminModule, MarketModule, AuditModule, IntegrityModule],
   controllers: [],
   providers: [],
 })

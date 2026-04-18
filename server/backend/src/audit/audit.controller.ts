@@ -27,4 +27,9 @@ export class AuditController {
   async getCompanyHistory(@Param('id') id: string) {
     return this.auditService.getCompanyHistory(id);
   }
+
+  @Get('tx/:hash')
+  async findByHash(@Param('hash') hash: string) {
+    return this.auditService.findActionByHash(hash);
+  }
 }

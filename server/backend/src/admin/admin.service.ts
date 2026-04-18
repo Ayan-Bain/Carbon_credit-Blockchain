@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
+import { IntegrityService, Mismatch } from '../integrity/integrity.service';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { BatchStatus } from '@prisma/client';
 
@@ -8,7 +9,8 @@ import { BatchStatus } from '@prisma/client';
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly blockchain: BlockchainService,
+    private readonly blockchainService: BlockchainService,
+    private readonly integrityService: IntegrityService,
   ) {}
 
   async updateRole(updateRoleDto: UpdateRoleDto) {
@@ -27,11 +29,11 @@ export class AdminService {
     // but here we just update the specific role field)
     await this.prisma.company.update({
       where: { walletAddress },
-      data: { role: grant ? role : 'BUYER' }, // Defaulting to BUYER if revoked
+      data: { role: (grant ? role : 'BUYER') as any }, // Cast to any to bypass enum validation
     });
 
     // 2. Update on Blockchain
-    const txHash = await this.blockchain.setOnChainRole(walletAddress, role, grant);
+    const txHash = await this.blockchainService.setOnChainRole(walletAddress, role, grant);
 
     return {
       message: `Role ${role} ${grant ? 'granted to' : 'revoked from'} ${walletAddress}`,
@@ -48,21 +50,31 @@ export class AdminService {
   async approveBatch(batchId: string, regulatorId: string, quantity?: number) {
     const batch = await this.prisma.creditBatch.findUnique({
       where: { id: batchId },
+      include: { producer: true },
     });
     if (!batch) throw new NotFoundException('Batch not found');
     if (batch.status !== 'PENDING') throw new BadRequestException('Batch is not in PENDING status');
 
     const finalQuantity = quantity || batch.quantity;
 
+    // 2. Generate a Minting Permit (Signature) to prevent fraud
+    const { signature, messageHash } = await this.blockchainService.signMintingPermit(
+      (batch as any).producer.walletAddress,
+      batch.metadataIPFSHash,
+      finalQuantity
+    );
+
     return this.prisma.creditBatch.update({
       where: { id: batchId },
       data: {
         status: BatchStatus.APPROVED,
         verifiedAt: new Date(),
-        verifiedById: regulatorId,
+        verifiedBy: { connect: { id: regulatorId } },
         quantity: finalQuantity,
         remainingQuantity: finalQuantity,
-      },
+        mintingPermit: signature,
+        verificationHash: messageHash,
+      } as any,
     });
   }
 
@@ -88,7 +100,7 @@ export class AdminService {
   }
 
   async getRegulatorStats(regulatorId: string) {
-    const verifiedStatuses = [BatchStatus.APPROVED, BatchStatus.MINTED, BatchStatus.LISTED];
+    const verifiedStatuses = [BatchStatus.APPROVED, BatchStatus.VERIFIED, BatchStatus.LISTED];
     
     const [verifiedCount, rejectedCount, batches] = await Promise.all([
       this.prisma.creditBatch.count({
@@ -136,26 +148,66 @@ export class AdminService {
   }
 
   async getGlobalStats() {
-    const [minted, retired, transactions] = await Promise.all([
-      this.prisma.creditBatch.aggregate({
-        where: { status: { in: [BatchStatus.MINTED, BatchStatus.LISTED, BatchStatus.SOLD_OUT] } },
-        _sum: { quantity: true },
-      }),
-      this.prisma.retirementRecord.aggregate({
-        _sum: { unitsRetired: true },
-      }),
-      this.prisma.transaction.aggregate({
-        where: { status: 'CONFIRMED' },
-        _sum: { unitsPurchased: true, totalPrice: true },
-      }),
-    ]);
+    try {
+      const [minted, retired, transactions, onChain, integrityCheck] = await Promise.all([
+        this.prisma.creditBatch.aggregate({
+          where: {
+            onChainBatchId: { not: null } // Use onChainBatchId to identify minted batches
+          },
+          _sum: { quantity: true },
+        }),
+        this.prisma.retirementRecord.aggregate({
+          _sum: { unitsRetired: true },
+        }),
+        this.prisma.transaction.aggregate({
+          where: { status: 'CONFIRMED' as any },
+          _sum: { unitsPurchased: true, totalPrice: true },
+        }),
+        this.blockchainService.getOnChainTotals(),
+        this.integrityService.performIntegrityCheck(),
+      ]);
 
-    return {
-      totalMinted: minted._sum.quantity || 0,
-      totalRetired: retired._sum.unitsRetired || 0,
-      totalVolume: transactions._sum.unitsPurchased || 0,
-      totalValue: Number(transactions._sum.totalPrice || 0),
-    };
+      const dbRetired = retired?._sum?.unitsRetired || 0;
+      const ledgerRetired = onChain.totalRetired;
+      const hasMismatch = dbRetired !== ledgerRetired || integrityCheck.length > 0;
+
+      if (hasMismatch) {
+        console.warn(`SECURITY ALERT: Integrity issues detected! Retirement mismatch: DB=${dbRetired}, Ledger=${ledgerRetired}. Additional mismatches: ${integrityCheck.length}`);
+      }
+
+      // Group mismatches by severity
+      const criticalMismatches = integrityCheck.filter(m => m.severity === 'CRITICAL');
+      const highMismatches = integrityCheck.filter(m => m.severity === 'HIGH');
+
+      return {
+        totalMinted: minted?._sum?.quantity || 0,
+        totalRetired: ledgerRetired, // Blockchain is the absolute truth
+        totalVolume: transactions?._sum?.unitsPurchased || 0,
+        totalValue: Number(transactions?._sum?.totalPrice || 0),
+        securityMismatch: hasMismatch,
+        integrityIssues: {
+          total: integrityCheck.length,
+          critical: criticalMismatches.length,
+          high: highMismatches.length,
+          details: integrityCheck.slice(0, 10), // Show first 10 mismatches
+        },
+      };
+    } catch (err) {
+      console.error('Failed to aggregate global stats:', err);
+      return {
+        totalMinted: 0,
+        totalRetired: 0,
+        totalVolume: 0,
+        totalValue: 0,
+        securityMismatch: false,
+        integrityIssues: {
+          total: 0,
+          critical: 0,
+          high: 0,
+          details: [],
+        },
+      };
+    }
   }
 
   async getApprovedBatches() {

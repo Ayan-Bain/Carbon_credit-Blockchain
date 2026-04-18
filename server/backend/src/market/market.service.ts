@@ -33,12 +33,12 @@ export class MarketService {
       throw new BadRequestException('You do not own this batch');
     }
 
-    if (batch.status !== BatchStatus.MINTED && batch.status !== BatchStatus.LISTED) {
-      throw new BadRequestException('Only minted batches can be listed');
+    if (batch.status !== BatchStatus.VERIFIED && batch.status !== BatchStatus.LISTED) {
+      throw new BadRequestException('Only verified batches can be listed');
     }
 
     // Calculate how many units the producer still "owns" and hasn't listed yet
-    const [soldAggr, listedAggr] = await Promise.all([
+    const [soldAggr, listedAggr, retiredAggr] = await Promise.all([
       this.prisma.transaction.aggregate({
         where: { listing: { batchId, sellerId: producerId }, status: 'CONFIRMED' },
         _sum: { unitsPurchased: true },
@@ -47,11 +47,16 @@ export class MarketService {
         where: { batchId, sellerId: producerId },
         _sum: { availableUnits: true },
       }),
+      this.prisma.retirementRecord.aggregate({
+        where: { batchId, buyerId: producerId }, // Check if the owner themselves retired them
+        _sum: { unitsRetired: true },
+      }),
     ]);
-
+    
     const totalSold = soldAggr._sum.unitsPurchased || 0;
     const totalListed = listedAggr._sum.availableUnits || 0;
-    const availableToList = batch.quantity - totalSold - totalListed;
+    const totalRetired = retiredAggr._sum.unitsRetired || 0;
+    const availableToList = batch.quantity - totalSold - totalListed - totalRetired;
 
     if (availableToList < amount) {
       throw new BadRequestException(

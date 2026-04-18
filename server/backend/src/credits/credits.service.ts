@@ -8,7 +8,7 @@ export class CreditsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ipfsService: IpfsService,
-    private readonly blockchain: BlockchainService,
+    private readonly blockchainService: BlockchainService,
   ) {}
 
   async submitBatch(producerId: string, file: Express.Multer.File, metadata: any) {
@@ -69,22 +69,47 @@ export class CreditsService {
     if (batch.onChainBatchId) {
       throw new BadRequestException('Batch already has an on-chain ID.');
     }
+    if (!(batch as any).mintingPermit) {
+      throw new BadRequestException('Batch lacks a valid regulator minting permit.');
+    }
 
     // Call blockchain to mint
-    const { txHash, onChainBatchId } = await this.blockchain.mintBatch(
-      batch.producer.walletAddress,
-      batch.metadataIPFSHash,
-      batch.quantity
-    );
+    try {
+      const { txHash, onChainBatchId } = await this.blockchainService.mintBatch(
+        batch.producer.walletAddress,
+        batch.metadataIPFSHash,
+        batch.quantity,
+        (batch as any).mintingPermit
+      );
 
-    return this.prisma.creditBatch.update({
-      where: { id: batchId },
-      data: {
-        status: 'MINTED',
-        onChainBatchId,
-        txHash,
-      },
-    });
+      return this.prisma.creditBatch.update({
+        where: { id: batchId },
+        data: {
+          status: 'VERIFIED', // Use VERIFIED instead of MINTED
+          onChainBatchId,
+          txHash,
+        },
+      });
+    } catch (err: any) {
+      // Intercept Regulator Signature Failure (Indicator of DB Tampering)
+      if (err.message?.includes('Audit Failure') || err.message?.includes('Invalid Regulator signature')) {
+        const currentHash = this.blockchainService.getMintingHash(
+          batch.producer.walletAddress,
+          batch.metadataIPFSHash,
+          batch.quantity
+        );
+
+        throw new BadRequestException({
+          message: 'FRAUD ALERT: Regulator signature verification failed on-chain.',
+          error: 'SECURITY_MISMATCH',
+          regulatorHash: (batch as any).verificationHash,
+          unauthorizedHash: currentHash,
+          currentQuantity: batch.quantity,
+          metadata: batch.metadataIPFSHash
+        });
+      }
+      throw err;
+    }
   }
 
   async getBatch(id: string) {
@@ -173,7 +198,7 @@ export class CreditsService {
       throw new BadRequestException('Not enough purchased credits available to retire for this batch');
     }
 
-    const txHash = await this.blockchain.retireCredits(batch.onChainBatchId, buyer.walletAddress, amount);
+    const txHash = await this.blockchainService.retireCredits(batch.onChainBatchId, buyer.walletAddress, amount);
 
     const [retirement] = await this.prisma.$transaction([
       this.prisma.retirementRecord.create({
