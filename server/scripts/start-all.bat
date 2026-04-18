@@ -67,6 +67,9 @@ if /i "%RESURRECT%"=="y" (
 echo [7/5] Starting backend + Prisma Studio...
 start "Carbon Credit - Backend + Prisma Studio" cmd /k ""%ROOT_DIR%\scripts\start-backend-with-studio.bat""
 
+echo [8/5] Starting frontend...
+start "Carbon Credit - Frontend" cmd /k "cd /d ""%ROOT_DIR%\..\frontend"" && npm run dev"
+
 echo.
 echo Startup sequence launched successfully.
 echo PostgreSQL must already be running for the backend to connect.
@@ -124,6 +127,7 @@ powershell -NoProfile -Command ^
   "$pairs = @{" ^
   "  'ACCESS_CONTROL_ADDRESS' ='%ACCESS_CONTROL_ADDRESS%';" ^
   "  'REGISTRY_ADDRESS' ='%REGISTRY_ADDRESS%';" ^
+  "  'TOKEN_ADDRESS' ='%TOKEN_ADDRESS%';" ^
   "  'ADMIN_PRIVATE_KEY' ='%LOCAL_ADMIN_PRIVATE_KEY%';" ^
   "  'ADMIN_WALLET_ADDRESS' ='%LOCAL_ADMIN_WALLET_ADDRESS%';" ^
   "};" ^

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { IpfsService } from '../ipfs/ipfs.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
+import { BatchStatus } from '@prisma/client';
 
 @Injectable()
 export class CreditsService {
@@ -63,36 +64,32 @@ export class CreditsService {
     });
     
     if (!batch) throw new NotFoundException('Batch not found');
-    if (batch.status !== 'APPROVED') {
+    if (batch.status !== BatchStatus.APPROVED) {
       throw new BadRequestException('Batch must be in APPROVED status before minting.');
     }
-    if (batch.onChainBatchId) {
-      throw new BadRequestException('Batch already has an on-chain ID.');
-    }
-    if (!(batch as any).mintingPermit) {
-      throw new BadRequestException('Batch lacks a valid regulator minting permit.');
+    if (!batch.onChainBatchId) {
+      throw new BadRequestException('Batch lacks an on-chain approval record.');
     }
 
-    // Call blockchain to mint
+    // Call blockchain to execute final minting check
     try {
-      const { txHash, onChainBatchId } = await this.blockchainService.mintBatch(
-        batch.producer.walletAddress,
-        batch.metadataIPFSHash,
+      const txHash = await this.blockchainService.executeMinting(
+        batch.onChainBatchId,
         batch.quantity,
-        (batch as any).mintingPermit
+        batch.metadataIPFSHash
       );
 
       return this.prisma.creditBatch.update({
         where: { id: batchId },
         data: {
-          status: 'VERIFIED', // Use VERIFIED instead of MINTED
-          onChainBatchId,
-          txHash,
+          status: BatchStatus.VERIFIED, // We use VERIFIED as the final successful state
+          txHash, // Update with the minting tx hash
         },
       });
     } catch (err: any) {
-      // Intercept Regulator Signature Failure (Indicator of DB Tampering)
-      if (err.message?.includes('Audit Failure') || err.message?.includes('Invalid Regulator signature')) {
+      const errMsg = err.message || '';
+      // Intercept Integrity/Fraud Failure from Smart Contract
+      if (errMsg.includes('Integrity Failure') || errMsg.includes('mismatch on-chain record') || errMsg.includes('permanently invalidated')) {
         const currentHash = this.blockchainService.getMintingHash(
           batch.producer.walletAddress,
           batch.metadataIPFSHash,
@@ -100,7 +97,7 @@ export class CreditsService {
         );
 
         throw new BadRequestException({
-          message: 'FRAUD ALERT: Regulator signature verification failed on-chain.',
+          message: 'FRAUD ALERT: The data in your database no longer matches the on-chain approved record. This batch has been PERMANENTLY LOCKED on-chain.',
           error: 'SECURITY_MISMATCH',
           regulatorHash: (batch as any).verificationHash,
           unauthorizedHash: currentHash,
@@ -198,7 +195,13 @@ export class CreditsService {
       throw new BadRequestException('Not enough purchased credits available to retire for this batch');
     }
 
-    const txHash = await this.blockchainService.retireCredits(batch.onChainBatchId, buyer.walletAddress, amount);
+    const txHash = await this.blockchainService.retireCredits(
+      batch.onChainBatchId,
+      buyer.walletAddress,
+      amount,
+      batch.quantity,
+      batch.metadataIPFSHash
+    );
 
     const [retirement] = await this.prisma.$transaction([
       this.prisma.retirementRecord.create({
