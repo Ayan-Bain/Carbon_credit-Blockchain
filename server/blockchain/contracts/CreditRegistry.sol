@@ -15,6 +15,7 @@ contract CreditRegistry {
         uint256 quantity; // Total credits in this batch
         uint256 submittedAt;
         bool verified;
+        bool isInvalid; // The "Poison Pill" flag
     }
 
     uint256 public nextBatchId = 1;
@@ -23,9 +24,11 @@ contract CreditRegistry {
     mapping(uint256 => uint256) public batchRetiredUnits; // Mapping for retirements per batch
 
     event BatchSubmitted(uint256 indexed batchId, address indexed producer, string metadataHash);
+    event BatchApproved(uint256 indexed batchId, uint256 quantity, string metadataHash);
     event BatchVerified(uint256 indexed batchId, address indexed producer, uint256 amount);
     event CreditsTransferred(uint256 indexed batchId, address indexed from, address indexed to, uint256 amount);
     event CreditsRetired(uint256 indexed batchId, address indexed account, uint256 amount);
+    event TamperingDetected(uint256 indexed batchId, address indexed perpetrator);
 
     constructor(address _accessControlAddress, address _tokenAddress) {
         accessControl = CarbonAccessControl(_accessControlAddress);
@@ -43,27 +46,34 @@ contract CreditRegistry {
     }
 
     /**
-     * @dev Allows a minter to create a verified batch and mint tokens using a regulator's permission signature.
-     * This prevents DB tampering where a producer might increase the quantity after verification.
-     * @param _producer The address of the producer who owns the credits.
-     * @param _metadataHash The IPFS hash of the off-chain metadata.
-     * @param _quantity The amount of credits to mint.
-     * @param _signature The cryptographic signature from a verified Regulator confirming the quantity.
-     * @return batchId The newly generated ID for this credit batch.
+     * @dev Modifier to verify that the provided DB values match the on-chain record.
+     * If a mismatch is detected, the batch is permanently invalidated (Poison Pill).
      */
-    function mintBatch(
-        address _producer, 
-        string memory _metadataHash, 
-        uint256 _quantity,
-        bytes memory _signature
-    ) external onlyMinter returns (uint256) {
-        // 1. Verify that the quantity was signed by a Regulator
-        bytes32 messageHash = keccak256(abi.encodePacked(_producer, _metadataHash, _quantity));
-        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+    modifier verifyIntegrity(uint256 _batchId, uint256 _providedQuantity, string memory _providedMetadataHash) {
+        CreditBatch storage batch = batches[_batchId];
+        require(!batch.isInvalid, "Batch has been permanently invalidated due to tampering detection");
         
-        address signer = _recoverSigner(ethSignedMessageHash, _signature);
-        require(accessControl.hasRole(accessControl.REGULATOR_ROLE(), signer), "Audit Failure: Invalid Regulator signature for this quantity");
+        // Check for tampering in quantity or metadata link
+        if (_providedQuantity != batch.quantity || keccak256(bytes(_providedMetadataHash)) != keccak256(bytes(batch.metadataHash))) {
+            batch.isInvalid = true; // Permanent lock
+            batch.verified = false;
+            emit TamperingDetected(_batchId, msg.sender);
+            revert("Integrity Failure: DB values mismatch on-chain record. Batch permanently locked.");
+        }
+        _;
+    }
 
+    /**
+     * @dev Step 1 of Secure Issuance: Regulator locks the batch details on-chain.
+     * This creates the "Gold Standard" record that cannot be tampered with between approval and minting.
+     */
+    function recordApproval(
+        address _producer, 
+        uint256 _quantity, 
+        string calldata _metadataHash
+    ) external onlyRegulator returns (uint256) {
+        require(_quantity > 0, "Quantity must be positive");
+        
         uint256 batchId = nextBatchId++;
         
         batches[batchId] = CreditBatch({
@@ -72,16 +82,32 @@ contract CreditRegistry {
             metadataHash: _metadataHash,
             quantity: _quantity,
             submittedAt: block.timestamp,
-            verified: true
+            verified: true,
+            isInvalid: false
         });
 
-        // Mint credits as tokens to the producer
-        token.mint(_producer, batchId, _quantity, "");
-
-        emit BatchSubmitted(batchId, _producer, _metadataHash);
-        emit BatchVerified(batchId, _producer, _quantity);
-        
+        emit BatchApproved(batchId, _quantity, _metadataHash);
         return batchId;
+    }
+
+    /**
+     * @dev Step 2 of Secure Issuance: Minter triggers the final token issuance.
+     * Performs a final integrity check against the provided DB values.
+     */
+    function executeMinting(
+        uint256 _batchId,
+        uint256 _providedQuantity,
+        string calldata _providedMetadataHash
+    ) external onlyMinter verifyIntegrity(_batchId, _providedQuantity, _providedMetadataHash) {
+        CreditBatch storage batch = batches[_batchId];
+        
+        // Ensure we only mint once
+        require(token.balanceOf(batch.producer, _batchId) == 0, "Batch already minted");
+
+        // Mint credits as tokens to the producer
+        token.mint(batch.producer, _batchId, batch.quantity, "");
+
+        emit BatchVerified(_batchId, batch.producer, batch.quantity);
     }
 
     function verifyBatch(uint256 _batchId, uint256 _quantity) external onlyRegulator {
@@ -99,7 +125,13 @@ contract CreditRegistry {
         emit BatchVerified(_batchId, batch.producer, _quantity);
     }
 
-    function retireCredits(uint256 _batchId, address _account, uint256 _amount) external onlyRegulator {
+    function retireCredits(
+        uint256 _batchId, 
+        address _account, 
+        uint256 _amount,
+        uint256 _providedQuantity,
+        string calldata _providedMetadataHash
+    ) external onlyRegulator verifyIntegrity(_batchId, _providedQuantity, _providedMetadataHash) {
         CreditBatch storage batch = batches[_batchId];
         require(batch.id != 0, "Batch does not exist");
         require(batch.verified, "Batch is not verified");
@@ -118,8 +150,10 @@ contract CreditRegistry {
         uint256 _batchId,
         address _from,
         address _to,
-        uint256 _amount
-    ) external onlyRegulator {
+        uint256 _amount,
+        uint256 _providedQuantity,
+        string calldata _providedMetadataHash
+    ) external onlyRegulator verifyIntegrity(_batchId, _providedQuantity, _providedMetadataHash) {
         CreditBatch storage batch = batches[_batchId];
         require(batch.id != 0, "Batch does not exist");
         require(batch.verified, "Batch is not verified");
