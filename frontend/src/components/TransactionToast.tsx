@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 export type TransactionStatus = 'pending' | 'success' | 'error';
 
@@ -15,6 +15,15 @@ interface TransactionToastProps {
 }
 
 export default function TransactionToast({ show, status, message, txHash, onClose }: TransactionToastProps) {
+  useEffect(() => {
+    if (show && status !== 'pending') {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [show, status, onClose]);
+
   return (
     <AnimatePresence>
       {show && (
@@ -45,16 +54,6 @@ export default function TransactionToast({ show, status, message, txHash, onClos
                 {message}
               </p>
               
-              {txHash && (
-                <a
-                  href={`https://etherscan.io/tx/${txHash}`} // Replace with local block explorer if available
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-[#1b4332] hover:underline"
-                >
-                  View on Explorer <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
             </div>
 
             <button 

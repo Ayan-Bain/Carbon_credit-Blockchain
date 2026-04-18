@@ -9,6 +9,7 @@ import SideNavigation from './PortfolioSideNavigation';
 import PortfolioHoldings from './PortfolioHoldings';
 import AssetDistribution from './AssetDistribution';
 import RecentActivity from './RecentActivity';
+import { useAuth } from '@/lib/auth-context';
 
 interface HoldingItem {
   id: string;
@@ -33,18 +34,20 @@ interface DistributionData {
   color: string;
 }
 
-export default function BuyerPortfolio() {
+export default function BuyerDashboard() {
+  const { logout } = useAuth();
   const router = useRouter();
   const [holdings, setHoldings] = useState<HoldingItem[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [distributionData, setDistributionData] = useState<DistributionData[]>([]);
+  const [fullHistory, setFullHistory] = useState<any[]>([]);
   const [totals, setTotals] = useState({
     totalCredits: 0,
     lifetimeOffset: 0,
     portfolioValue: 0,
     quarterlyGrowth: '+12%',
   });
-  const [activeTab, setActiveTab] = useState<'portfolio' | 'insights' | 'governance'>('portfolio');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'insights' | 'governance'>('dashboard');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,49 +60,66 @@ export default function BuyerPortfolio() {
       setLoading(true);
       setError(null);
 
-      // Fetch portfolio holdings
-      const [holdingsRes, activityRes, statsRes] = await Promise.all([
-        api.get('/portfolio/holdings'),
-        api.get('/portfolio/activity'),
-        api.get('/portfolio/stats'),
+      // Fetch portfolio data from real backend endpoints
+      const [holdingsRes, historyRes, statsRes] = await Promise.all([
+        api.get('/credits/portfolio'),
+        api.get('/audit/company/me'),
+        api.get('/audit/company/stats'),
       ]);
 
       // Process holdings data
-      const holdingsData = holdingsRes.data.map((item: any) => ({
+      const activeHoldings = holdingsRes.data.map((item: any) => ({
         id: item.id,
-        projectName: item.projectName,
-        batchId: item.batchId,
+        projectName: item.producerName || 'Unknown Project',
+        batchId: item.onChainBatchId ? `#${item.onChainBatchId}` : 'No Chain ID',
         amount: item.quantity,
-        status: item.status,
+        status: 'ACTIVE',
       }));
 
-      // Process recent activity
-      const activityData = activityRes.data.map((item: any) => ({
-        id: item.id,
-        type: item.type,
-        projectName: item.projectName,
-        date: new Date(item.date).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        }),
-        amount: item.amount,
-      }));
+      // Extract retired holdings from history too
+      const retiredHoldings = historyRes.data.history
+        .filter((h: any) => h.type === 'CREDITS_RETIRED')
+        .map((h: any) => ({
+          id: h.details.batchId,
+          projectName: h.details.producer?.name || 'Carbon Project',
+          batchId: h.details.onChainBatchId ? `#${h.details.onChainBatchId}` : 'No Chain ID',
+          amount: h.details.unitsRetired,
+          status: 'RETIRED',
+        }));
 
-      // Calculate distribution from holdings
-      const distribution = calculateDistribution(holdingsData);
+      // Process recent activity from company history
+      const activityData = historyRes.data.history
+        .filter((h: any) => h.type === 'CREDITS_PURCHASED' || h.type === 'CREDITS_RETIRED')
+        .map((h: any) => {
+          const type = h.type === 'CREDITS_PURCHASED' ? 'PURCHASE' : 'RETIRED';
+          return {
+            id: h.details.transactionId || h.details.retirementId || Math.random().toString(),
+            type,
+            projectName: type === 'PURCHASE' 
+              ? h.details.seller?.name || 'Carbon Project'
+              : h.details.producer?.name || 'Carbon Project',
+            date: new Date(h.at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            }),
+            amount: type === 'PURCHASE' ? h.details.unitsPurchased : h.details.unitsRetired,
+          };
+        })
+        .reverse();
 
       // Update state
-      setHoldings(holdingsData);
-      setRecentActivity(activityData.slice(0, 5)); // Show last 5 activities
-      setDistributionData(distribution);
+      setHoldings([...activeHoldings, ...retiredHoldings]);
+      setFullHistory(historyRes.data.history);
+      setRecentActivity(activityData.slice(0, 5));
+      setDistributionData(calculateDistribution(activeHoldings));
 
       // Update totals
       setTotals({
         totalCredits: statsRes.data.totalCredits || 0,
         lifetimeOffset: statsRes.data.lifetimeOffset || 0,
         portfolioValue: statsRes.data.portfolioValue || 0,
-        quarterlyGrowth: statsRes.data.quarterlyGrowth || '+12%',
+        quarterlyGrowth: statsRes.data.quarterlyGrowth || '+0%',
       });
     } catch (err) {
       console.error('Failed to fetch portfolio data:', err);
@@ -200,10 +220,19 @@ export default function BuyerPortfolio() {
 
   const handleRetireCredits = async (holdingId: string) => {
     try {
-      await api.post(`/portfolio/retire/${holdingId}`);
+      // Find the holding to get the amount
+      const holding = holdings.find(h => h.id === holdingId);
+      if (!holding) return;
+
+      await api.post('/credits/retire', {
+        batchId: holdingId,
+        amount: holding.amount,
+        purpose: 'Retirement via Buyer Portfolio'
+      });
       await fetchPortfolioData();
     } catch (err) {
       console.error('Failed to retire credits:', err);
+      setError('Failed to retire credits. Please check your balance.');
     }
   };
 
@@ -227,28 +256,28 @@ export default function BuyerPortfolio() {
       }}
     >
       {/* Sidebar Navigation */}
-      <SideNavigation activeTab="portfolio" />
+      <SideNavigation activeTab="dashboard" />
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-auto">
         {/* Top Navigation */}
-        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-100 bg-white/60 px-8 py-4 backdrop-blur-md shadow-sm">
-          <div className="flex items-center gap-8">
-            <h1 className="text-xl font-semibold tracking-tight text-green-950">Arboretum Finance</h1>
-            <div className="flex gap-6">
+        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-100 bg-white/60 px-6 py-3 backdrop-blur-md shadow-sm">
+          <div className="flex items-center gap-6">
+            <h1 className="text-lg font-bold tracking-tight text-green-950">VL REGISTRY</h1>
+            <div className="flex gap-4">
               <Link
-                href="/buyer/portfolio"
-                className={`border-b-2 pb-1.5 text-base font-medium transition-colors ${
-                  activeTab === 'portfolio'
+                href="/buyer"
+                className={`border-b-2 pb-1 text-sm font-bold transition-colors ${
+                  activeTab === 'dashboard'
                     ? 'border-green-500 text-green-500'
                     : 'border-transparent text-gray-700 hover:text-gray-900'
                 }`}
               >
-                Portfolio
+                Dashboard
               </Link>
               <button
                 onClick={() => setActiveTab('insights')}
-                className={`border-b-2 pb-1.5 text-base font-medium transition-colors ${
+                className={`border-b-2 pb-1 text-sm font-bold transition-colors ${
                   activeTab === 'insights'
                     ? 'border-green-500 text-green-500'
                     : 'border-transparent text-gray-700 hover:text-gray-900'
@@ -258,7 +287,7 @@ export default function BuyerPortfolio() {
               </button>
               <button
                 onClick={() => setActiveTab('governance')}
-                className={`border-b-2 pb-1.5 text-base font-medium transition-colors ${
+                className={`border-b-2 pb-1 text-sm font-bold transition-colors ${
                   activeTab === 'governance'
                     ? 'border-green-500 text-green-500'
                     : 'border-transparent text-gray-700 hover:text-gray-900'
@@ -268,21 +297,27 @@ export default function BuyerPortfolio() {
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="rounded-full p-2 hover:bg-gray-100">
-              <span className="text-xl">📋</span>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={logout}
+              className="px-4 py-1.5 bg-white border border-gray-200 rounded-lg font-bold text-xs text-green-950 hover:bg-gray-50 transition"
+            >
+              Sign Out
             </button>
-            <button className="rounded-full p-2 hover:bg-gray-100">
-              <span className="text-xl">🔔</span>
+            <button className="rounded-full p-1.5 hover:bg-gray-100">
+              <span className="text-lg">📋</span>
             </button>
-            <div className="h-8 w-8 rounded-full border border-gray-300 bg-gradient-to-br from-green-400 to-blue-500" />
+            <button className="rounded-full p-1.5 hover:bg-gray-100">
+              <span className="text-lg">🔔</span>
+            </button>
+            <div className="h-7 w-7 rounded-full border border-gray-300 bg-gradient-to-br from-green-400 to-blue-500" />
           </div>
         </div>
 
-        {/* Portfolio Content */}
-        {activeTab === 'portfolio' && (
+        {/* Dashboard Content */}
+        {activeTab === 'dashboard' && (
           <div className="flex-1 overflow-auto">
-            <div className="flex flex-col gap-8 p-8">
+            <div className="flex flex-col gap-6 p-6">
               {error && (
                 <div className="rounded-lg bg-red-50 p-4 text-red-700">
                   <p>{error}</p>
@@ -292,41 +327,41 @@ export default function BuyerPortfolio() {
               {/* Impact Summary Section */}
               <div className="grid grid-cols-3 gap-6">
                 {/* Total Credits Card */}
-              <div
-                className="rounded-xl p-8 shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${colors.primary.dark} 0%, ${colors.primary.dark} 100%)`,
-                }}
-              >
-                <div className="mb-4 flex flex-col gap-2">
-                  <p className="text-sm font-semibold" style={{ color: colors.primary.accent }}>
-                    Total Credits
-                  </p>
-                  <div className="flex items-baseline gap-2">
-                    <h2
-                      className="text-4xl font-extrabold tracking-tight"
-                      style={{ color: colors.primary.accent }}
-                    >
-                      {totals.totalCredits.toLocaleString()}
-                    </h2>
-                    <p
-                      className="text-lg font-normal opacity-70"
-                      style={{ color: colors.primary.accent }}
-                    >
-                      tCO2e
+                <div
+                  className="rounded-xl p-8 shadow-lg"
+                  style={{
+                    background: `linear-gradient(135deg, ${colors.primary.dark} 0%, ${colors.primary.dark} 100%)`,
+                  }}
+                >
+                  <div className="mb-4 flex flex-col gap-2">
+                    <p className="text-sm font-semibold" style={{ color: colors.primary.accent }}>
+                      Your Carbon Credits
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <h2
+                        className="text-4xl font-extrabold tracking-tight"
+                        style={{ color: colors.primary.accent }}
+                      >
+                        {totals.totalCredits.toLocaleString()}
+                      </h2>
+                      <p
+                        className="text-lg font-normal opacity-70"
+                        style={{ color: colors.primary.accent }}
+                      >
+                        Tons of Carbon
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-6 flex items-center gap-2">
+                    <div
+                      className="h-1.5 w-2 rounded-full"
+                      style={{ backgroundColor: colors.primary.accent }}
+                    />
+                    <p className="text-sm font-medium" style={{ color: colors.primary.accent }}>
+                      {totals.quarterlyGrowth} from last quarter
                     </p>
                   </div>
                 </div>
-                <div className="mt-6 flex items-center gap-2">
-                  <div
-                    className="h-1.5 w-2 rounded-full"
-                    style={{ backgroundColor: colors.primary.accent }}
-                  />
-                  <p className="text-sm font-medium" style={{ color: colors.primary.accent }}>
-                    {totals.quarterlyGrowth} from last quarter
-                  </p>
-                </div>
-              </div>
 
                 {/* Lifetime Offset Card */}
                 <div className="rounded-xl bg-white p-8 shadow-lg">
@@ -377,7 +412,7 @@ export default function BuyerPortfolio() {
                       color: colors.primary.accent,
                     }}
                   >
-                    EST. MARKET PRICE: $27.53/t
+                    EST. EXCHANGE RATE: $27.53/t
                   </div>
                 </div>
               </div>
@@ -387,7 +422,9 @@ export default function BuyerPortfolio() {
                 <div className="col-span-2">
                   <PortfolioHoldings
                     holdings={holdings}
+                    history={fullHistory}
                     onRetire={handleRetireCredits}
+                    onViewDetails={(id) => router.push(`/batches/${id}`)}
                   />
                 </div>
                 <div className="flex flex-col gap-6">

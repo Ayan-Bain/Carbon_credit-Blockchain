@@ -1,94 +1,48 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { colors } from '@/lib/design-tokens';
 
-interface SideNavigationProps {
-  activeTab?: string;
-}
+interface SideNavigationProps {}
 
-export default function SideNavigation({ activeTab = 'portfolio' }: SideNavigationProps) {
+export default function SideNavigation({}: SideNavigationProps) {
+  const pathname = usePathname();
   const menuItems = [
-    { label: 'Dashboard', href: '/buyer', icon: '📊' },
-    { label: 'Portfolio', href: '/buyer/portfolio', icon: '💼', active: activeTab === 'portfolio' },
-    { label: 'Verification', href: '/buyer/verification', icon: '✓' },
-    { label: 'Marketplace', href: '/buyer/marketplace', icon: '🛒' },
-    { label: 'Audit Trail', href: '/buyer/audit', icon: '📋' },
+    { label: 'Dashboard', href: '/buyer/dashboard', icon: '💼', active: pathname === '/buyer/dashboard' },
+    { label: 'Marketplace', href: '/marketplace', icon: '🛒', active: pathname === '/marketplace' },
+    { label: 'Audit Trail', href: '/audit', icon: '📋', active: pathname === '/audit' },
   ];
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-gray-100 bg-gradient-to-b from-slate-50 to-white">
+    <aside className="w-64 flex-shrink-0 bg-gradient-to-b from-[#1b4332] to-[#012d1d] text-white shadow-lg p-5">
       {/* Header */}
-      <div className="border-b border-gray-100 p-6">
-        <h3
-          className="text-lg font-bold"
-          style={{ color: colors.primary.darkest }}
-        >
-          Carbon Assets
-        </h3>
-        <p
-          className="mt-1 text-xs font-semibold uppercase tracking-wider"
-          style={{ color: colors.text.medium }}
-        >
-          Institutional Grade
-        </p>
+      <div className="mb-8">
+        <div className="inline-flex items-center gap-2 bg-[#6bfe9c] text-[#012d1d] rounded-lg p-2 font-bold">
+          <span className="text-lg">🌿</span>
+          <span className="text-sm">BLOCK CARBON</span>
+        </div>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex flex-col gap-1 p-4">
+      <nav className="space-y-1">
         {menuItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-all"
-            style={
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
               item.active
-                ? {
-                    backgroundColor: colors.primary.dark,
-                    color: colors.primary.accent,
-                    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.1)',
-                  }
-                : {
-                    color: colors.text.medium,
-                  }
-            }
+                ? 'bg-[#6bfe9c] text-[#012d1d] font-semibold'
+                : 'text-[rgba(193,236,212,0.8)] hover:bg-[rgba(107,254,156,0.1)]'
+            }`}
           >
             <span className="text-lg">{item.icon}</span>
-            <span>{item.label}</span>
+            <span className="text-sm font-medium">{item.label}</span>
           </Link>
         ))}
       </nav>
 
-      {/* Bottom Actions */}
-      <div className="absolute bottom-0 left-0 w-64 border-t border-gray-100 bg-white p-4">
-        <div className="flex flex-col gap-3">
-          <button
-            className="w-full rounded-lg px-4 py-3 text-sm font-semibold shadow-lg transition-colors"
-            style={{
-              backgroundColor: colors.primary.dark,
-              color: colors.primary.accent,
-            }}
-          >
-            Buy Credits
-          </button>
-          <div className="flex flex-col gap-2 text-sm">
-            <button
-              className="flex items-center gap-2 transition-colors"
-              style={{ color: colors.text.medium }}
-            >
-              <span>⚙️</span>
-              <span>Settings</span>
-            </button>
-            <button
-              className="flex items-center gap-2 transition-colors"
-              style={{ color: colors.text.medium }}
-            >
-              <span>❓</span>
-              <span>Support</span>
-            </button>
-          </div>
-        </div>
-      </div>
+
     </aside>
   );
 }

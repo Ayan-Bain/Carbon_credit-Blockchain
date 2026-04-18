@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import BuyerPortfolio from '@/components/BuyerPortfolio';
+import BuyerMarketplace from '@/components/BuyerMarketplace';
 
-export default function BuyerPortfolioPage() {
+export default function MarketplacePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -19,5 +19,5 @@ export default function BuyerPortfolioPage() {
     return null;
   }
 
-  return <BuyerPortfolio />;
+  return <BuyerMarketplace />;
 }

@@ -14,8 +14,10 @@ export default function Home() {
     if (!loading && user) {
       const role = user.role.toLowerCase();
       if (role === 'producer') router.push('/producer');
-      else if (role === 'regulator' || role === 'admin') router.push('/regulator');
+      else if (role === 'regulator') router.push('/regulator');
+      else if (role === 'admin') router.push('/admin');
       else if (role === 'buyer') router.push('/buyer');
+      else if (role === 'minter') router.push('/minting');
     }
   }, [user, loading, router]);
 
@@ -23,7 +25,7 @@ export default function Home() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#f4fafd]">
         <Loader2 className="w-12 h-12 text-[#6bfe9c] animate-spin mb-4" />
-        <p className="text-[#012d1d] font-semibold">Synchronizing with Registry...</p>
+        <p className="text-[#012d1d] font-semibold">Opening the Carbon Registry...</p>
       </div>
     );
   }
@@ -32,7 +34,7 @@ export default function Home() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#f4fafd]">
         <Loader2 className="w-12 h-12 text-[#6bfe9c] animate-spin mb-4" />
-        <p className="text-[#012d1d] font-semibold">Redirecting to Dashboard...</p>
+        <p className="text-[#012d1d] font-semibold">Almost there...</p>
       </div>
     );
   }

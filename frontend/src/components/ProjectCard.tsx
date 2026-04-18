@@ -10,6 +10,8 @@ interface ProjectCardProps {
   available: string;
   availableNum: number;
   onBuy: (amount: number) => void;
+  onViewDetails?: () => void;
+  canBuy?: boolean;
 }
 
 export default function ProjectCard({
@@ -22,6 +24,8 @@ export default function ProjectCard({
   available,
   availableNum,
   onBuy,
+  onViewDetails,
+  canBuy = true,
 }: ProjectCardProps) {
   const [amount, setAmount] = useState(1);
 
@@ -60,7 +64,8 @@ export default function ProjectCard({
             <div className="flex-1 flex items-center border border-[#c1c8c2] rounded-lg">
               <button 
                 onClick={() => setAmount(Math.max(1, amount - 1))}
-                className="px-3 py-2 text-[#012d1d] hover:bg-gray-50 transition font-bold"
+                disabled={!canBuy}
+                className="px-3 py-2 text-[#012d1d] hover:bg-gray-50 transition font-bold disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 -
               </button>
@@ -68,11 +73,13 @@ export default function ProjectCard({
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(Math.min(availableNum, Math.max(1, parseInt(e.target.value) || 1)))}
-                className="w-full text-center border-x border-[#c1c8c2] py-2 focus:outline-none font-bold text-[#012d1d]"
+                disabled={!canBuy}
+                className="w-full text-center border-x border-[#c1c8c2] py-2 focus:outline-none font-bold text-[#012d1d] disabled:opacity-30 disabled:cursor-not-allowed"
               />
               <button 
                 onClick={() => setAmount(Math.min(availableNum, amount + 1))}
-                className="px-3 py-2 text-[#012d1d] hover:bg-gray-50 transition font-bold"
+                disabled={!canBuy}
+                className="px-3 py-2 text-[#012d1d] hover:bg-gray-50 transition font-bold disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 +
               </button>
@@ -82,10 +89,20 @@ export default function ProjectCard({
 
           <button
             onClick={() => onBuy(amount)}
-            className="w-full bg-gradient-to-r from-[#012d1d] to-[#1b4332] text-white py-3 rounded-lg font-bold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all"
+            disabled={!canBuy}
+            title={!canBuy ? "Authorized Buyers only. Access restricted for your role." : ""}
+            className="w-full bg-gradient-to-r from-[#012d1d] to-[#1b4332] text-white py-3 rounded-lg font-bold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
           >
             Buy {amount} Credits
           </button>
+          {onViewDetails && (
+            <button
+              onClick={onViewDetails}
+              className="w-full border border-[#e2e9ec] text-[#012d1d] bg-white py-3 rounded-lg font-semibold text-sm hover:bg-[#f4fafd] transition-all"
+            >
+              View Details
+            </button>
+          )}
         </div>
       </div>
     </div>

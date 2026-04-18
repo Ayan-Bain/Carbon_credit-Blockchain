@@ -5,19 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import BuyerMarketplace from '@/components/BuyerMarketplace';
 
-export default function BuyerPage() {
+export default function UnifiedMarketplacePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      if (!user || user.role !== 'BUYER') {
-        router.push('/');
-      } else {
-        router.push('/buyer/dashboard');
-      }
+    if (!loading && !user) {
+      router.push('/');
     }
   }, [user, loading, router]);
 
-  return null;
+  if (loading || !user) {
+    return null;
+  }
+
+  return <BuyerMarketplace />;
 }

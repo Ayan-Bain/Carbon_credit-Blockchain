@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface NavItem {
   label: string;
@@ -12,24 +12,26 @@ interface NavItem {
 
 interface SideNavigationProps {
   items: NavItem[];
-  currentPath?: string;
 }
 
-export default function SideNavigation({ items, currentPath = '/' }: SideNavigationProps) {
+export default function SideNavigation({ items }: SideNavigationProps) {
+  const pathname = usePathname();
+
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-gradient-to-b from-[#1b4332] to-[#012d1d] text-white shadow-lg p-6 z-40">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-gradient-to-b from-[#1b4332] to-[#012d1d] text-white shadow-lg p-5 z-40">
       {/* Branding */}
-      <div className="mb-12">
-        <div className="inline-flex items-center gap-2 bg-[#6bfe9c] text-[#012d1d] rounded-lg p-2.5 font-bold">
+      <div className="mb-8">
+        <div className="inline-flex items-center gap-2 bg-[#6bfe9c] text-[#012d1d] rounded-lg p-2 font-bold focus:outline-none">
           <span className="text-lg">🌿</span>
-          <span>VL</span>
+          <span className="text-sm">BLOCK CARBON</span>
         </div>
       </div>
 
       {/* Navigation Items */}
-      <nav className="space-y-2">
+      <nav className="space-y-1">
         {items.map((item) => {
-          const isActive = item.active || currentPath.includes(item.href);
+          const isActive = item.active || pathname === item.href;
+
           return (
             <Link
               key={item.href}
@@ -47,12 +49,7 @@ export default function SideNavigation({ items, currentPath = '/' }: SideNavigat
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="absolute bottom-6 left-6 right-6">
-        <button className="w-full px-4 py-2 bg-[rgba(107,254,156,0.1)] text-[#6bfe9c] rounded-lg text-sm font-medium hover:bg-[rgba(107,254,156,0.2)] transition-colors">
-          Settings
-        </button>
-      </div>
+
     </aside>
   );
 }

@@ -36,7 +36,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (token && storedUser) {
         setUser(JSON.parse(storedUser));
-        // Verify token with backend if needed
+        
+        // Also check for wallet connection
+        if (window.ethereum) {
+          try {
+            const provider = new BrowserProvider(window.ethereum);
+            const accounts = await provider.send('eth_accounts', []);
+            if (accounts.length > 0) {
+              setAddress(getAddress(accounts[0]));
+              setIsConnected(true);
+            }
+          } catch (err) {
+            console.error('Failed to auto-reconnect wallet:', err);
+          }
+        }
       }
       setLoading(false);
     };
@@ -87,9 +100,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('user', JSON.stringify(loggedUser));
       setUser(loggedUser);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
-      alert('Login failed. See console for details.');
+      if (error.code === 4001 || error.message?.includes('user rejected')) {
+        throw new Error('SIGN_IN_CANCELLED');
+      }
+      throw error;
     }
   };
 

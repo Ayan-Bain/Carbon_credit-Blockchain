@@ -3,8 +3,8 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
-  title: "Veridian Ledger - Carbon Credit Registry",
-  description: "A high-trust registry for verified ecological impact",
+  title: "Block Carbon - Universal Credit Registry",
+  description: "Accelerating global decarbonization through transparent on-chain assets",
 };
 
 export default function RootLayout({

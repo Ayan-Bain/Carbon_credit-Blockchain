@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import SideNavigation from './SideNavigation';
 import StatCard from './StatCard';
 import BatchCard from './BatchCard';
@@ -8,18 +9,16 @@ import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
 
 const navItems = [
-  { label: 'Dashboard', href: '/producer', icon: '📊', active: true },
-  { label: 'Submissions', href: '/producer/submissions', icon: '📤' },
-  { label: 'Verification', href: '/producer/verification', icon: '✓' },
-  { label: 'Marketplace', href: '/producer/marketplace', icon: '🛒' },
-  { label: 'Audit Trail', href: '/producer/audit', icon: '📋' },
+  { label: 'Dashboard', href: '/producer', icon: '📊' },
+  { label: 'Marketplace', href: '/marketplace', icon: '🛒' },
+  { label: 'Audit Trail', href: '/audit', icon: '📋' },
 ];
 
 export default function ProducerDashboard() {
+  const router = useRouter();
   const { user, login, logout, address } = useAuth();
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchBatches = async () => {
     setLoading(true);
@@ -39,34 +38,56 @@ export default function ProducerDashboard() {
     }
   }, [user]);
 
+  const handleListBatch = async (batchId: string, quantity: number, price: number) => {
+    try {
+      await api.post('/market/listings', {
+        batchId,
+        amount: quantity,
+        price
+      });
+      alert('Project batch listed successfully on the marketplace.');
+      fetchBatches(); // Refresh the list to show updated status or any changes
+    } catch (err: any) {
+      console.error('Listing failed:', err);
+      alert(err.response?.data?.message || 'Failed to list the batch. Please try again.');
+      throw err;
+    }
+  };
+
   const totalCredits = batches.reduce((acc, b) => acc + (b.quantity || 0), 0);
   const pendingBatches = batches.filter(b => b.status === 'PENDING').length;
-  const verifiedCredits = batches
-    .filter(b => b.status === 'VERIFIED' || b.status === 'MINTED')
+  const totalVerified = batches
+    .filter(b => ['VERIFIED', 'MINTED', 'LISTED', 'SOLD_OUT'].includes(b.status))
     .reduce((acc, b) => acc + (b.quantity || 0), 0);
+    
+  const totalRetired = batches.reduce((acc, b) => 
+    acc + (b.retirements?.reduce((sum: number, r: any) => sum + (r.unitsRetired || 0), 0) || 0), 0
+  );
+
+  const verifiedCredits = totalVerified - totalRetired;
 
   return (
     <div className="flex min-h-screen bg-[#f4fafd]">
       <SideNavigation items={navItems} />
 
-      <main className="flex-1 ml-64 p-8">
-        <div className="mb-8 flex justify-between items-center">
+      <main className="flex-1 ml-64 p-6">
+        <div className="mb-6 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold text-[#012d1d] mb-2">Producer Dashboard</h1>
-            <p className="text-[#717973]">Welcome back, {user?.name || 'Producer'}</p>
+            <h1 className="text-3xl font-bold text-[#012d1d] mb-1">Project Dashboard</h1>
+            <p className="text-sm text-[#717973]">Welcome back, {user?.name || 'Partner'}</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {user ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="px-6 py-2 bg-[#6bfe9c] text-[#012d1d] rounded-lg font-semibold hover:bg-[#5ae88a] transition flex items-center gap-2"
+                  onClick={() => router.push('/producer/submission')}
+                  className="px-5 py-1.5 bg-[#6bfe9c] text-[#012d1d] rounded-lg font-semibold hover:bg-[#5ae88a] transition flex items-center gap-2 text-sm"
                 >
                   <span className="text-lg">+</span> New Submission
                 </button>
                 <button 
                   onClick={logout}
-                  className="px-6 py-2 bg-white border border-[#e2e9ec] rounded-lg font-semibold text-[#012d1d] hover:bg-[#f4fafd] transition"
+                  className="px-5 py-1.5 bg-white border border-[#e2e9ec] rounded-lg font-semibold text-[#012d1d] hover:bg-[#f4fafd] transition text-sm"
                 >
                   Sign Out
                 </button>
@@ -74,20 +95,20 @@ export default function ProducerDashboard() {
             ) : (
               <button 
                 onClick={login}
-                className="px-6 py-2 bg-[#6bfe9c] text-[#012d1d] rounded-lg font-semibold hover:bg-[#5ae88a] transition"
+                className="px-5 py-1.5 bg-[#6bfe9c] text-[#012d1d] rounded-lg font-semibold hover:bg-[#5ae88a] transition text-sm"
               >
                 Connect Wallet
               </button>
             )}
             {address && (
-              <span className="text-xs font-mono bg-white px-3 py-2 rounded-lg border border-[#e2e9ec]">
+              <span className="text-[10px] font-mono bg-white px-2 py-1.5 rounded-lg border border-[#e2e9ec]">
                 {address.slice(0, 6)}...{address.slice(-4)}
               </span>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6 mb-10">
+        <div className="grid grid-cols-3 gap-4 mb-8">
           <StatCard
             label="Total Registered"
             value={totalCredits.toLocaleString()}
@@ -108,16 +129,16 @@ export default function ProducerDashboard() {
           />
         </div>
 
-        <section className="mb-10">
-          <div className="mb-6 flex justify-between items-end">
+        <section className="mb-6">
+          <div className="mb-4 flex justify-between items-end">
             <div>
-              <h2 className="text-2xl font-bold text-[#012d1d] mb-2">My Batches</h2>
-              <p className="text-[#717973]">Recent submissions and their status</p>
+              <h2 className="text-xl font-bold text-[#012d1d] mb-1">My Projects</h2>
+              <p className="text-xs text-[#717973]">Recent submissions and their current status</p>
             </div>
-            <button className="text-[#1b4332] font-semibold hover:underline">View All</button>
+            <button className="text-[#1b4332] text-sm font-semibold hover:underline">View All</button>
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {loading ? (
               <div className="p-12 text-center text-[#717973]">Loading your batches...</div>
             ) : batches.length === 0 ? (
@@ -125,20 +146,27 @@ export default function ProducerDashboard() {
                 No batches found. Start by submitting your first environmental project.
               </div>
             ) : (
-              batches.map((batch) => (
-                <BatchCard
-                  key={batch.id}
-                  projectName={batch.id.slice(0, 8)} // Fallback if name missing
-                  location="Global" // Placeholder
-                  quantity={`${batch.quantity.toLocaleString()} tCO2e`}
-                  status={batch.status.toLowerCase()}
-                  submissionDate={new Date(batch.submittedAt).toLocaleDateString()}
-                  actions={[
-                    { label: 'View Details', onClick: () => console.log('Details', batch.id) },
-                    ...(batch.status === 'VERIFIED' ? [{ label: 'List for Sale', onClick: () => {} }] : [])
-                  ]}
-                />
-              ))
+              batches.map((batch) => {
+                const alreadyListedVolume = batch.listings?.reduce((sum: number, l: any) => sum + (l.availableUnits || 0), 0) || 0;
+                
+                return (
+                  <BatchCard
+                    key={batch.id}
+                    batchId={batch.id}
+                    projectName={batch.projectName || `Project #${batch.id.slice(0, 8)}`}
+                    location={batch.location || 'Global Registry'}
+                    quantity={`${(batch.quantity || 0).toLocaleString()} MT`}
+                    totalVolume={batch.quantity || 0}
+                    alreadyListedVolume={alreadyListedVolume}
+                    status={batch.status.toLowerCase()}
+                    submissionDate={new Date(batch.submittedAt).toLocaleDateString()}
+                    onList={handleListBatch}
+                    actions={[
+                      { label: 'View Details', onClick: () => router.push(`/batches/${batch.id}`) }
+                    ]}
+                  />
+                );
+              })
             )}
           </div>
         </section>

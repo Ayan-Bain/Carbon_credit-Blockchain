@@ -115,24 +115,24 @@ export default function AuthRegistration() {
             {/* Logo */}
             <div className="flex gap-3 items-center w-full">
               <div className="bg-[#6bfe9c] flex items-center justify-center rounded-lg shrink-0 size-10">
-                <img alt="Veridian logo" className="w-[18px] h-5" src={imgLogo} />
+                <img alt="Block Carbon logo" className="w-[18px] h-5" src={imgLogo} />
               </div>
               <div>
-                <h1 className="font-extrabold text-2xl text-[#6bfe9c] tracking-tight">Veridian Ledger</h1>
+                <h1 className="font-extrabold text-2xl text-[#6bfe9c] tracking-tight">Block Carbon</h1>
               </div>
             </div>
 
             {/* Main Heading */}
             <div className="flex flex-col items-start max-w-[576px] pt-4">
               <h2 className="font-extrabold text-[72px] text-white tracking-tight leading-[1.1]">
-                The Digital <span className="text-[#6bfe9c]">Arboretum</span> of Carbon Assets.
+                A Trusted <span className="text-[#6bfe9c]">Ecosystem</span> for Carbon Credits.
               </h2>
             </div>
 
             {/* Description */}
             <div className="flex flex-col items-start max-w-[448px]">
               <p className="text-xl text-[rgba(193,236,212,0.8)] leading-relaxed">
-                A high-trust registry for verified ecological impact, bridging institutional finance with decentralized environmental stewardship.
+                Connect sustainable projects with corporate impact goals through a verified, transparent marketplace.
               </p>
             </div>
           </div>
@@ -153,7 +153,7 @@ export default function AuthRegistration() {
                     <img alt="avatar 3" className="w-full h-full" src={imgAvatar3} />
                   </div>
                 </div>
-                <p className="font-medium text-white text-sm">Joined by 12k+ stewards</p>
+                <p className="font-medium text-white text-sm">Joined by 12k+ partners</p>
               </div>
 
               <div className="bg-[rgba(255,255,255,0.1)] h-px my-4" />
@@ -173,17 +173,17 @@ export default function AuthRegistration() {
             {/* Header */}
             <div className="mb-10">
               <h3 className="font-extrabold text-[30px] text-[#161d1f] tracking-tight mb-2">
-                Onboard to Veridian
+                Join Block Carbon
               </h3>
               <p className="text-base text-[#414844]">
-                Connect your identity to the global ledger.
+                Create your profile to start tracking impact.
               </p>
             </div>
 
             {/* Web3 Connection */}
             <div className="mb-8">
               <label className="font-bold text-xs text-[#414844] tracking-wider uppercase block mb-4">
-                Instant Authentication
+                Secure Sign-In
               </label>
 
               <button
@@ -194,20 +194,20 @@ export default function AuthRegistration() {
               >
                 <img alt="MetaMask" className="w-6 h-6" src={imgMetaMask} />
                 <span className="font-semibold text-[#161d1f]">
-                  {isLoggingIn ? 'Connecting...' : 'Sign-In with Ethereum'}
+                  {isLoggingIn ? 'Connecting...' : 'Sign-In with Wallet'}
                 </span>
                 <img alt="arrow" className="w-5 h-3.5" src={imgArrowIcon} />
               </button>
 
               <p className="text-center text-xs text-[#414844] mt-4">
-                By connecting, you agree to the SIWE protocol standards for secure, self-custodial identity.
+                By connecting, you use standard secure authentication for your organization.
               </p>
             </div>
 
             {/* Divider */}
             <div className="flex items-center gap-4 my-8">
               <div className="flex-1 h-px bg-[#e2e9ec]" />
-              <span className="font-semibold text-xs text-[#c1c8c2] tracking-wider uppercase">Or Register Profile</span>
+              <span className="font-semibold text-xs text-[#c1c8c2] tracking-wider uppercase">Or Create Account</span>
               <div className="flex-1 h-px bg-[#e2e9ec]" />
             </div>
 
@@ -216,7 +216,7 @@ export default function AuthRegistration() {
               {/* Full Name */}
               <div>
                 <label className="font-bold text-xs text-[#414844] tracking-wider uppercase block mb-2">
-                  Full Entity Name
+                  Company or Project Name
                 </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -254,7 +254,7 @@ export default function AuthRegistration() {
               {/* Role Selection */}
               <div>
                 <label className="font-bold text-xs text-[#414844] tracking-wider uppercase block mb-2">
-                  Operational Role
+                  How will you use Block Carbon?
                 </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2">

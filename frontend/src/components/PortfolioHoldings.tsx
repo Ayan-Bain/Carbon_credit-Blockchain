@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { colors } from '@/lib/design-tokens';
+import { generateHistoryPDF } from '@/lib/pdf-generator';
+import { useAuth } from '@/lib/auth-context';
 
 interface Holding {
   id: string;
@@ -13,10 +15,13 @@ interface Holding {
 
 interface PortfolioHoldingsProps {
   holdings: Holding[];
+  history: any[];
   onRetire: (holdingId: string) => void;
+  onViewDetails: (batchId: string) => void;
 }
 
-export default function PortfolioHoldings({ holdings, onRetire }: PortfolioHoldingsProps) {
+export default function PortfolioHoldings({ holdings, history, onRetire, onViewDetails }: PortfolioHoldingsProps) {
+  const { user, address } = useAuth();
   const [retiringId, setRetiringId] = useState<string | null>(null);
 
   const handleRetire = async (id: string) => {
@@ -26,6 +31,14 @@ export default function PortfolioHoldings({ holdings, onRetire }: PortfolioHoldi
     } finally {
       setRetiringId(null);
     }
+  };
+
+  const handleDownloadHistory = () => {
+    if (history.length === 0) {
+      alert('No history records found to download.');
+      return;
+    }
+    generateHistoryPDF(history, user?.name || 'Institutional Partner', address || 'Not Connected');
   };
 
   const getStatusColor = (status: string) => {
@@ -60,13 +73,14 @@ export default function PortfolioHoldings({ holdings, onRetire }: PortfolioHoldi
           className="text-2xl font-extrabold"
           style={{ color: colors.primary.darkest }}
         >
-          My Holdings
+          My Credits
         </h2>
         <button
-          className="flex items-center gap-1 text-sm font-semibold transition-colors"
+          onClick={handleDownloadHistory}
+          className="flex items-center gap-1 text-sm font-semibold transition-colors hover:opacity-80"
           style={{ color: colors.primary.success }}
         >
-          <span>Export Ledger</span>
+          <span>Download History</span>
           <span>↓</span>
         </button>
       </div>
@@ -111,7 +125,7 @@ export default function PortfolioHoldings({ holdings, onRetire }: PortfolioHoldi
           <tbody>
             {holdings.map((holding, index) => (
               <tr
-                key={holding.id}
+                key={`${holding.id}-${holding.status}-${index}`}
                 className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${getRowOpacity(
                   holding.status
                 )}`}
@@ -125,7 +139,7 @@ export default function PortfolioHoldings({ holdings, onRetire }: PortfolioHoldi
                       {holding.projectName}
                     </p>
                     <p style={{ color: colors.text.medium }} className="text-sm">
-                      Batch: {holding.batchId}
+                      Record: {holding.batchId}
                     </p>
                   </div>
                 </td>
@@ -144,7 +158,7 @@ export default function PortfolioHoldings({ holdings, onRetire }: PortfolioHoldi
                       {holding.amount.toLocaleString()}
                     </p>
                     <p style={{ color: colors.text.medium }} className="text-xs">
-                      tCO2e
+                      Tons of Carbon
                     </p>
                   </div>
                 </td>
@@ -168,10 +182,11 @@ export default function PortfolioHoldings({ holdings, onRetire }: PortfolioHoldi
                     </button>
                   ) : (
                     <button
+                      onClick={() => onViewDetails(holding.id)}
                       className="text-sm font-semibold underline transition-colors"
                       style={{ color: colors.primary.darkest }}
                     >
-                      View Audit Trail
+                      View Verification Details
                     </button>
                   )}
                 </td>
