@@ -29,6 +29,7 @@ enum BatchStatus {
   REJECTED
   LISTED
   SOLD_OUT
+  BEYOND_REPAIR
 }
 
 enum TransactionStatus {
@@ -65,6 +66,7 @@ model CreditBatch {
   quantity          Int         // Total credit units
   remainingQuantity Int
   metadataIPFSHash  String      // Pointer to off-chain docs
+  submissionHash    String?     // Hash generated at submission for pre-approval verification
   mintingPermit     String?     // Cryptographic proof from regulator
   verificationHash  String?     // Hash that was signed by regulator
   
@@ -76,7 +78,8 @@ model CreditBatch {
 
   // Relations
   listings          CreditListing[]
-  retirements       RetirementRecord[]
+  retirements      RetirementRecord[]
+  auditLogs         AuditLog[]
 }
 
 model CreditListing {
@@ -117,3 +120,16 @@ model RetirementRecord {
   retiredAt       DateTime    @default(now())
   onChainTxHash   String      // Retirement = Burn on-chain
 }
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  batchId   String
+  batch     CreditBatch @relation(fields: [batchId], references: [id])
+  action    String   // SUBMISSION, APPROVAL, MINTING, SALE, RETIREMENT
+  prevHash  String?
+  currHash  String
+  payload   Json     // The state being hashed
+  txHash    String?  // Associated blockchain tx
+  createdAt DateTime @default(now())
+}
+

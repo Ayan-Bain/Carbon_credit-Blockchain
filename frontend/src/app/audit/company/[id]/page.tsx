@@ -140,11 +140,12 @@ export default function CompanyAuditPage() {
           </div>
 
           <div className="divide-y divide-[#e2e9ec]">
-            {history.map((item: any, idx: number) => {
-              const label = item.type.replace(/_/g, ' ');
-              const isPurchase = item.type === 'CREDITS_PURCHASED';
-              const isRetirement = item.type === 'CREDITS_RETIRED';
-              const isCreation = item.type === 'COMPANY_CREATED';
+            {(history || []).map((item: any, idx: number) => {
+              const label = (item.action || 'Unknown').replace(/_/g, ' ');
+              const details = item.payload || {};
+              const isPurchase = item.action === 'SALE';
+              const isRetirement = item.action === 'RETIREMENT';
+              const isCreation = item.action === 'COMPANY_CREATED';
 
               return (
                 <div key={idx} className="p-5 hover:bg-[#fcfdfe] transition group">
@@ -171,47 +172,44 @@ export default function CompanyAuditPage() {
                           }`}>
                             {label}
                           </span>
-                          <p className="text-sm text-[#717973] mt-1">{new Date(item.at).toLocaleString()}</p>
+                          <p className="text-sm text-[#717973] mt-1">{new Date(item.createdAt).toLocaleString()}</p>
                         </div>
-                        {item.details?.onChainTxHash && (
+                        {item.txHash && (
                           <div className="flex flex-col items-end">
                             <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest mb-1">Transaction Hash</p>
                             <div className="flex items-center gap-2 font-mono text-xs bg-[#f4fafd] px-3 py-1.5 rounded-lg border border-[#e2e9ec]">
-                              {item.details.onChainTxHash.slice(0, 10)}...{item.details.onChainTxHash.slice(-8)}
-                              <button onClick={() => handleCopy(item.details.onChainTxHash)} className="hover:text-[#13bf66]">
-                                {copiedText === item.details.onChainTxHash ? <Check size={12} /> : <Copy size={12} />}
+                              {item.txHash.slice(0, 10)}...{item.txHash.slice(-8)}
+                              <button onClick={() => handleCopy(item.txHash)} className="hover:text-[#13bf66]">
+                                {copiedText === item.txHash ? <Check size={12} /> : <Copy size={12} />}
                               </button>
                             </div>
                           </div>
                         )}
                       </div>
 
-                      { (isCreation || isPurchase || isRetirement || item.details.producer || item.details.seller || item.details.verifier) && (
+                      { (isCreation || isPurchase || isRetirement || details.producer || details.seller || details.verifier) && (
                         <div className="grid grid-cols-2 gap-8 py-4 px-6 bg-[#f9fbfc] rounded-3xl border border-[#e2e9ec]">
                         {isCreation ? (
                           <>
                             <div>
                               <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest">Initial Role</p>
-                              <p className="font-bold text-[#012d1d] mt-1">{item.details.role}</p>
+                              <p className="font-bold text-[#012d1d] mt-1">{details.role}</p>
                             </div>
                             <div>
                               <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest">Verification Status</p>
-                              <p className="font-bold text-[#012d1d] mt-1">{item.details.kycVerified ? 'Verified' : 'Unverified'}</p>
+                              <p className="font-bold text-[#012d1d] mt-1">{details.kycVerified ? 'Verified' : 'Unverified'}</p>
                             </div>
                           </>
                         ) : isPurchase ? (
                           <>
                             <div>
                               <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest">Quantity</p>
-                              <p className="font-extrabold text-[#012d1d] mt-1 text-lg">{item.details.unitsPurchased.toLocaleString()} MT</p>
+                              <p className="font-extrabold text-[#012d1d] mt-1 text-lg">{details.unitsPurchased.toLocaleString()} MT</p>
                             </div>
                             <div>
-                              <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest">Batch ID</p>
+                              <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest">On-Chain Batch</p>
                               <div className="flex items-center gap-2 mt-1">
-                                <p className="font-mono text-xs text-[#136d3a] font-bold">#{item.details.onChainBatchId}</p>
-                                <button onClick={() => handleCopy(item.details.batchId)} className="p-1 hover:bg-white rounded transition text-[#717973]">
-                                  {copiedText === item.details.batchId ? <Check size={12} /> : <Copy size={12} />}
-                                </button>
+                                <p className="font-mono text-xs text-[#136d3a] font-bold">#{details.onChainBatchId}</p>
                               </div>
                             </div>
                           </>
@@ -219,16 +217,16 @@ export default function CompanyAuditPage() {
                           <>
                             <div>
                               <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest">Retired</p>
-                              <p className="font-extrabold text-[#136d3a] mt-1 text-lg">{item.details.unitsRetired.toLocaleString()} MT</p>
+                              <p className="font-extrabold text-[#136d3a] mt-1 text-lg">{details.unitsRetired.toLocaleString()} MT</p>
                             </div>
                             <div>
                               <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest">Purpose</p>
-                              <p className="text-sm font-semibold text-[#012d1d] mt-1 line-clamp-1 italic">{item.details.purpose}</p>
+                              <p className="text-sm font-semibold text-[#012d1d] mt-1 line-clamp-1 italic">{details.purpose}</p>
                             </div>
                           </>
                         ) : null}
                         
-                        {(item.details.producer || item.details.seller || item.details.verifier) && (
+                        {(details.producer || details.seller || details.verifier) && (
                           <div className="col-span-2 pt-4 border-t border-[#e2e9ec]/60 mt-2">
                             <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest mb-1">Executed By</p>
                             <div className="flex items-center gap-2">
@@ -236,17 +234,17 @@ export default function CompanyAuditPage() {
                                 👤
                               </div>
                               <p className="text-xs font-bold text-[#012d1d]">
-                                {(item.details.producer || item.details.seller || item.details.verifier).name}
+                                {(details.producer || details.seller || details.verifier).name}
                               </p>
                               <div className="flex items-center gap-1.5 ml-auto">
                                 <p className="text-[10px] font-mono text-[#717973]">
-                                  {(item.details.producer || item.details.seller || item.details.verifier).id.slice(0, 8)}
+                                  {(details.producer || details.seller || details.verifier).id.slice(0, 8)}
                                 </p>
                                 <button 
-                                  onClick={() => handleCopy((item.details.producer || item.details.seller || item.details.verifier).id)}
+                                  onClick={() => handleCopy((details.producer || details.seller || details.verifier).id)}
                                   className="p-1 hover:text-[#136d3a] transition"
                                 >
-                                  {copiedText === (item.details.producer || item.details.seller || item.details.verifier).id ? <Check size={10} /> : <Copy size={10} />}
+                                  {copiedText === (details.producer || details.seller || details.verifier).id ? <Check size={10} /> : <Copy size={10} />}
                                 </button>
                               </div>
                             </div>
@@ -255,10 +253,10 @@ export default function CompanyAuditPage() {
                       </div>
                     )}
 
-                      {!isCreation && item.details?.batchId && (
+                      {!isCreation && item.batchId && (
                         <div className="flex justify-end pt-4">
                            <a 
-                             href={`/batches/${item.details.batchId}`} 
+                             href={`/batches/${item.batchId}`} 
                              className="inline-flex items-center gap-2 text-xs font-bold text-[#136d3a] hover:underline"
                            >
                              Inspect Batch Details <ExternalLink size={12} />

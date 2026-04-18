@@ -8,29 +8,14 @@ A blockchain-based carbon credit tracking system built as a monorepo. Carbon cre
 
 ```
 carbon_credit_monorepo/
-├── backend/          # NestJS REST API (off-chain layer)
-│   ├── prisma/       # Prisma ORM schema & migrations
-│   └── src/
-│       ├── admin/            # Regulator verification endpoints
-│       ├── audit/            # Credit lifecycle audit trail
-│       ├── auth/             # SIWE authentication & RBAC guards
-│       ├── blockchain/       # Ethers.js contract interaction service
-│       ├── blockchain-sync/  # On-chain event listener → DB sync
-│       ├── credits/          # Producer credit submission & management
-│       ├── ipfs/             # Pinata IPFS document upload service
-│       ├── market/           # Marketplace listing, buy, retire
-│       └── prisma/           # Prisma client module
-├── blockchain/       # Hardhat smart contracts
-│   ├── contracts/
-│   │   ├── CarbonAccessControl.sol  # Role management (OpenZeppelin)
-│   │   ├── CarbonCreditToken.sol    # ERC-1155 token per credit batch
-│   │   └── CreditRegistry.sol       # Batch submission & verification
-│   └── scripts/
-│       └── deploy.ts                # Contract deployment script
-├── shared/           # Shared DTOs between workspaces
-├── docker-compose.yml
-├── gen-sign.ts       # Utility: generate SIWE signature for testing
-└── package.json      # Yarn/NPM workspaces root
+├── frontend/           # Vite + React Dashboard (The Control Plane)
+└── server/             # The Trust Engine
+    ├── backend/        # NestJS REST API (off-chain layer)
+    ├── blockchain/     # Hardhat smart contracts
+    ├── scripts/        # Deployment utilities
+    └── shared/         # Shared DTOs and Logic
+├── docker-compose.yml  # Infrastructure as Code
+└── package.json        # Workspace configuration
 ```
 
 ---
@@ -59,15 +44,16 @@ Clients (Producer / Regulator / Buyer)
                           (syncs on-chain events back to PostgreSQL)
 ```
 
-### Key Design Decisions
+### Key Security Design Decisions
 
 | Decision | Rationale |
 |---|---|
-| **ERC-1155 tokens** | Each credit batch is a unique token type (fungible within a batch, distinguishable across batches) |
-| **Hybrid on/off-chain** | Documents stored on IPFS; only the content hash goes on-chain — keeps gas costs low |
-| **Retirement = Burn** | Burning tokens on-chain prevents double-counting of carbon offsets |
-| **Blockchain indexer** | A background service listens to contract events and populates PostgreSQL for fast, filterable API queries |
-| **SIWE Auth** | Wallet signatures replace passwords — identity is Ethereum address-based |
+| **On-Chain State Lock** | Cryptographic batch details are fixed on-chain upon approval, creating an immutable gold standard. |
+| **Active Poison Pill** | Regulators can permanently neutralize a batch (`BEYOND_REPAIR`) if tampering is detected post-approval. |
+| **Integrity Checks** | Background indexers and runtime guards verify database integrity against the On-Chain State Lock. |
+| **ERC-1155 tokens** | Each batch is a unique token type; retirement via on-chain burn prevents double-counting. |
+| **Hybrid On/Off-chain** | Privacy-preserved evidence storage on IPFS; only cryptographic proofs are stored on-chain. |
+| **SIWE Auth** | Wallet-based identity eliminates traditional password vulnerabilities. |
 
 ---
 
@@ -94,24 +80,22 @@ The core registry for credit batches:
 
 | Module | Responsibility |
 |---|---|
-| `AuthModule` | SIWE nonce generation, wallet signature login, JWT issuance, RBAC decorators & guards |
-| `CreditsModule` | Producer batch submission (uploads doc to IPFS → calls `submitBatch` on-chain) |
-| `AdminModule` | Regulator: list pending batches, verify or reject |
-| `MarketModule` | Create listings, browse marketplace, execute purchases |
-| `AuditModule` | Full event history for a batch or company |
-| `BlockchainSyncModule` | Background service: listens to `BatchSubmitted` / `BatchVerified` events → updates PostgreSQL |
-| `IpfsModule` | Wraps Pinata API for document upload; returns IPFS hash |
-| `PrismaModule` | Database client, global across all modules |
+| `AuthModule` | SIWE identity management and Wallet-based RBAC. |
+| `CreditsModule` | Secure submission, Minting Queue, and **Batch Invalidation (Poison Pill)**. |
+| `AdminModule` | Regulator workflows: approval, rejection, and on-chain record locking. |
+| `MarketModule` | Marketplace services with real-time inventory tracking. |
+| `AuditModule` | Structured Forensic Logs for every state transition in the lifecycle. |
+| `BlockchainSyncModule` | Real-time synchronization between on-chain events and DB state. |
 
 ---
 
 ## 🗄️ Database Models (PostgreSQL via Prisma)
 
-- **`Company`** — Registered entities with wallet address and role (`PRODUCER`, `REGULATOR`, `BUYER`, `BOTH`, `ADMIN`)
-- **`CreditBatch`** — Tracks batch lifecycle (`PENDING → VERIFIED/REJECTED → LISTED → SOLD_OUT`) + IPFS hash + on-chain batch ID
-- **`CreditListing`** — A verified batch listed for sale with price per unit
-- **`Transaction`** — Records each purchase with on-chain tx hash for double-spend verification
-- **`RetirementRecord`** — Permanently retired credits with on-chain burn tx hash
+- **`Company`** — Registered entities (Producers, Regulators, Buyers, Admins, Minters).
+- **`CreditBatch`** — Asset tracking via states: `PENDING → APPROVED → MINTED → SOLD_OUT` or `BEYOND_REPAIR`.
+- **`CreditListing`** — Active market inventory with real-time `availableUnits`.
+- **`Transaction`** — Signed trade records and purchase history.
+- **`AuditLog`** — Forensic audit trail with structured payload hashing.
 
 ---
 
@@ -153,11 +137,11 @@ npx hardhat node
 ### 4. Deploy Smart Contracts
 
 ```bash
-cd blockchain
+cd server/blockchain
 npx hardhat run scripts/deploy.ts --network localhost
 ```
 
-Copy the printed contract addresses and update `backend/.env`:
+Copy the printed contract addresses and update `server/backend/.env`:
 
 ```
 REGISTRY_ADDRESS=<printed CreditRegistry address>
@@ -169,7 +153,7 @@ ACCESS_CONTROL_ADDRESS=<printed CarbonAccessControl address>
 Copy and edit the env file:
 
 ```bash
-cp backend/.env.example backend/.env   # or edit backend/.env directly
+cp server/backend/.env.example server/backend/.env   # or edit .env directly
 ```
 
 Required variables:
@@ -189,14 +173,14 @@ ADMIN_WALLET_ADDRESS="<deployer wallet address>"
 ### 6. Run Database Migrations
 
 ```bash
-cd backend
+cd server/backend
 npx prisma migrate dev
 ```
 
 ### 7. Start the Backend
 
 ```bash
-cd backend
+cd server/backend
 npm run start:dev
 ```
 

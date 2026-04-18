@@ -36,6 +36,7 @@ Documentation policy: whenever an endpoint, auth rule, input shape, or response 
 | `/credits/batches/:id` | `GET` | None | No body | Returns one batch by ID. |
 | `/credits/batches/:id/metadata` | `GET` | None | No body | Returns off-chain metadata from IPFS. |
 | `/credits/batches/:id/download` | `GET` | None | No body | Streams the binary proof file from IPFS. |
+| `/credits/batches/:id/invalidate` | `POST` | `REGULATOR`, `ADMIN` | No body | Manually locks a batch (Poison Pill). Sets status to `BEYOND_REPAIR` and invalidates on-chain if present. |
 | `/credits/retire` | `POST` | Authenticated | JSON: `batchId`, `amount`, `purpose` | Retirement of credits (burn). |
 | `/credits/portfolio` | `GET` | Authenticated | No body | Returns total owned credits across all batches. |
 
@@ -45,30 +46,31 @@ Documentation policy: whenever an endpoint, auth rule, input shape, or response 
 |---|---|---|---|---|
 | `/market/listings` | `POST` | `PRODUCER` | JSON: `batchId`, `price`, `amount` | List verified credits. |
 | `/market/listings` | `GET` | None | No body | Browse active listings. |
-| `/market/listings/:id/buy` | `POST` | Authenticated | JSON: `amount` | Purchase credits from listing. |
+| `/market/listings/:id/buy` | `POST` | Authenticated | JSON: `amount` | Purchase credits; decrements `remainingQuantity` in batch. |
 
 ## Audit
 
 | Endpoint | Method | Auth | Input Format | Notes |
 |---|---|---|---|---|
 | `/audit/batch/:id` | `GET` | None | No body | Full lifecycle history of a batch. |
-| `/audit/company/:id` | `GET` | None | No body | Activity history for any company. |
-| `/audit/company/me` | `GET` | Authenticated | No body | Activity history for the current user. |
+| `/audit/company/:id` | `GET` | None | No body | Returns `{ company, history }` object. |
+| `/audit/company/me` | `GET` | Authenticated | No body | Returns `{ company, history }` for self. |
 | `/audit/company/stats` | `GET` | Authenticated | No body | High-level performance stats for the current user. |
 
 
 ## On-chain vs DB Behavior
 
-| Endpoint | On-chain action | DB write |
-|---|---|---|
-| `POST /auth/register` | No | Yes |
-| `POST /admin/roles` | Yes | Yes |
-| `POST /credits/batches` | No | Yes |
-| `POST /credits/batches/:id/confirm-onchain` | No | Yes |
-| `POST /admin/batches/:id/verify` | Yes | Yes |
-| `POST /market/listings` | No | Yes |
-| `POST /market/listings/:id/buy` | Yes | Yes |
-| `POST /credits/retire` | Yes | Yes |
+| Endpoint | On-chain action | DB write | Status Transition |
+|---|---|---|---|
+| `POST /auth/register` | No | Yes | N/A |
+| `POST /admin/roles` | Yes | Yes | N/A |
+| `POST /credits/batches` | No | Yes | `PENDING` |
+| `POST /admin/batches/:id/approve` | Yes (`recordApproval`) | Yes | `APPROVED` |
+| `POST /credits/batches/:id/mint` | Yes (`executeMinting`) | Yes | `MINTED` |
+| `POST /credits/batches/:id/invalidate` | Yes (`invalidateBatch`) | Yes | `BEYOND_REPAIR` |
+| `POST /market/listings` | No | Yes | `LISTED` |
+| `POST /market/listings/:id/buy` | Yes (Registry Verify) | Yes | `SOLD_OUT` (if units=0) |
+| `POST /credits/retire` | Yes (`retireCredits`) | Yes | N/A |
 
 ## Notes
 

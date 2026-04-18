@@ -15,17 +15,18 @@ export class BlockchainService implements OnModuleInit {
 
   private readonly REGISTRY_ABI = [
     'function recordApproval(address _producer, uint256 _quantity, string calldata _metadataHash) external returns (uint256)',
+    'function invalidateBatch(uint256 _batchId) external',
     'function executeMinting(uint256 _batchId, uint256 _providedQuantity, string calldata _providedMetadataHash) external',
-    'function verifyBatch(uint256 _batchId, uint256 _quantity) external',
     'function transferCredits(uint256 _batchId, address _from, address _to, uint256 _amount, uint256 _providedQuantity, string calldata _providedMetadataHash) external',
     'function retireCredits(uint256 _batchId, address _account, uint256 _amount, uint256 _providedQuantity, string calldata _providedMetadataHash) external',
-    'function batches(uint256) view returns (uint256 id, address producer, string metadataHash, uint256 quantity, uint256 submittedAt, bool verified)',
+    'function batches(uint256) view returns (uint256 id, address producer, bytes32 stateDigest, uint256 quantity, uint256 submittedAt, bool verified, bool isInvalid)',
+    'function batchRetiredUnits(uint256) view returns (uint256)',
     'function totalRetiredUnits() view returns (uint256)',
-    'event BatchSubmitted(uint256 indexed batchId, address indexed producer, string metadataHash)',
     'event BatchApproved(uint256 indexed batchId, uint256 quantity, string metadataHash)',
     'event BatchVerified(uint256 indexed batchId, address indexed producer, uint256 amount)',
     'event CreditsTransferred(uint256 indexed batchId, address indexed from, address indexed to, uint256 amount)',
     'event CreditsRetired(uint256 indexed batchId, address indexed account, uint256 amount)',
+    'event TamperingDetected(uint256 indexed batchId, bytes32 expectedDigest, bytes32 actualDigest)',
   ];
 
 
@@ -117,6 +118,29 @@ export class BlockchainService implements OnModuleInit {
     return tx.hash;
   }
 
+  async invalidateBatch(onChainBatchId: string) {
+    this.ensureContractsReady();
+    this.logger.log(`Invoking manual invalidateBatch for ID ${onChainBatchId}`);
+    
+    const tx = await this.registryContract.invalidateBatch(BigInt(onChainBatchId));
+    this.logger.log(`Invalidation transaction sent: ${tx.hash}`);
+    await tx.wait();
+    return tx.hash;
+  }
+
+  async getOnChainBatchStatus(onChainBatchId: string) {
+    this.ensureContractsReady();
+    const batch = await this.registryContract.batches(BigInt(onChainBatchId));
+    return {
+      id: batch.id.toString(),
+      producer: batch.producer,
+      stateDigest: batch.stateDigest,
+      quantity: Number(batch.quantity),
+      verified: batch.verified,
+      isInvalid: batch.isInvalid
+    };
+  }
+
   async verifyBatch(onChainBatchId: string, quantity: number) {
     this.ensureContractsReady();
     this.logger.log(`Invoking verifyBatch for ID ${onChainBatchId} with quantity ${quantity}`);
@@ -202,29 +226,11 @@ export class BlockchainService implements OnModuleInit {
     return tx.hash;
   }
 
-  /**
-   * @dev Generates a cryptographic signature that proves a regulator approved a specific quantity.
-   * This is used to prevent DB tampering between approval and minting.
-   */
-  async signMintingPermit(producerWallet: string, metadataHash: string, quantity: number) {
-    const normalizedProducer = this.normalizeAddress(producerWallet, 'producer wallet');
-    
-    // 1. Pack the data to match Solidity's keccak256(abi.encodePacked(...))
-    const messageHash = ethers.solidityPackedKeccak256(
-      ['address', 'string', 'uint256'],
-      [normalizedProducer, metadataHash, BigInt(quantity)]
-    );
-
-    // 2. Sign the hash (ethers automatically adds the Ethereum Signed Message prefix)
-    const signature = await this.wallet.signMessage(ethers.getBytes(messageHash));
-    return { signature, messageHash };
-  }
-
-  getMintingHash(producerWallet: string, metadataHash: string, quantity: number) {
+  getMintingHash(producerWallet: string, metadataHash: string, quantity: number): string {
     const normalizedProducer = this.normalizeAddress(producerWallet, 'producer wallet');
     return ethers.solidityPackedKeccak256(
-      ['address', 'string', 'uint256'],
-      [normalizedProducer, metadataHash, BigInt(quantity)]
+      ['address', 'uint256', 'string'],
+      [normalizedProducer, BigInt(quantity), metadataHash]
     );
   }
 

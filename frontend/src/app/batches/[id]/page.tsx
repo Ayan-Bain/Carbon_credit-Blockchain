@@ -133,6 +133,7 @@ export default function BatchDetailPage() {
       case 'MINTED': return 'text-[#13bf66]';
       case 'VERIFIED': return 'text-[#13bf66]';
       case 'LISTED': return 'text-[#3b82f6]';
+      case 'BEYOND_REPAIR': return 'text-red-700 bg-red-50 border-red-100 font-black';
       default: return 'text-[#13bf66]';
     }
   };
@@ -181,10 +182,25 @@ export default function BatchDetailPage() {
           <div className="bg-white p-6 rounded-[32px] border border-[#e2e9ec] shadow-sm">
             <p className="text-[10px] font-bold text-[#717973] uppercase tracking-widest mb-3">Registry Record ID</p>
             <div className="flex items-center justify-between">
-              <p className={`text-2xl font-black ${batch?.onChainBatchId ? 'text-[#136d3a]' : 'text-[#717973] opacity-40 text-sm italic'}`}>
-                {batch?.onChainBatchId ? `#${batch.onChainBatchId}` : 'Awaiting On-Chain Minting'}
-              </p>
-              <div className="w-10 h-10 bg-[#f4fafd] rounded-full flex items-center justify-center text-[#136d3a] font-bold">⛓️</div>
+              {batch?.status === 'BEYOND_REPAIR' ? (
+                <div>
+                  <p className="text-xl font-black text-red-600">
+                    PERMANENTLY LOCKED
+                  </p>
+                  {batch?.onChainBatchId && (
+                    <p className="text-[10px] font-mono text-red-400 opacity-60 line-through">
+                      Record: #{batch.onChainBatchId}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className={`text-2xl font-black ${batch?.onChainBatchId ? 'text-[#136d3a]' : 'text-[#717973] opacity-40 text-sm italic'}`}>
+                  {batch?.onChainBatchId ? `#${batch.onChainBatchId}` : 'Awaiting On-Chain Minting'}
+                </p>
+              )}
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${batch?.status === 'BEYOND_REPAIR' ? 'bg-red-50 text-red-600' : 'bg-[#f4fafd] text-[#136d3a]'}`}>
+                {batch?.status === 'BEYOND_REPAIR' ? '🔒' : '⛓️'}
+              </div>
             </div>
           </div>
           <div className="bg-white p-6 rounded-[32px] border border-[#e2e9ec] shadow-sm overflow-hidden">
@@ -224,9 +240,10 @@ export default function BatchDetailPage() {
               </div>
 
               <div className="divide-y divide-[#e2e9ec]">
-                {(auditData?.history || []).map((event: any, idx: number) => {
-                  const label = event.type.replace(/_/g, ' ');
-                  const txHash = event.details?.onChainTxHash || event.details?.txHash;
+                {(auditData || []).map((event: any, idx: number) => {
+                  const label = (event.action || 'Unknown').replace(/_/g, ' ');
+                  const txHash = event.txHash;
+                  const details = event.payload || {};
 
                   return (
                     <div key={idx} className="p-5 hover:bg-[#fcfdfe] transition">
@@ -240,7 +257,7 @@ export default function BatchDetailPage() {
                               <span className="inline-flex rounded-lg bg-[#ecf9f0] px-3 py-1 text-[10px] font-black text-[#136d3a] uppercase tracking-widest border border-[#d8f0dc]">
                                 {label}
                               </span>
-                              <p className="text-xs text-[#717973] mt-2 font-medium">{new Date(event.at).toLocaleString()}</p>
+                              <p className="text-xs text-[#717973] mt-2 font-medium">{new Date(event.createdAt).toLocaleString()}</p>
                             </div>
                             {txHash && (
                               <div className="flex flex-col items-end gap-1.5">
@@ -255,53 +272,59 @@ export default function BatchDetailPage() {
                             )}
                           </div>
                           
-                          {event.details && (Object.keys(event.details).some(k => ['unitsPurchased', 'totalPrice', 'purpose', 'quantity', 'status', 'pricePerUnit', 'availableUnits', 'producer', 'verifier', 'buyer', 'seller'].includes(k))) && (
+                          {details && (Object.keys(details).some(k => ['unitsPurchased', 'totalPrice', 'purpose', 'quantity', 'status', 'pricePerUnit', 'availableUnits', 'producer', 'verifier', 'buyer', 'seller', 'approvedQuantity', 'originalQuantity'].includes(k))) && (
                             <div className="bg-[#f9fbfc] border border-[#e2e9ec] rounded-2xl p-4 grid grid-cols-2 gap-4">
-                               {(event.details.unitsPurchased || event.details.quantity || event.details.availableUnits) && (
-                                 <div>
-                                   <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest">{event.details.unitsPurchased ? 'Quantity Traded' : event.details.availableUnits ? 'Credits for Market' : 'Batch Quantity'}</p>
-                                   <p className="font-bold text-[#012d1d]">{(event.details.unitsPurchased || event.details.quantity || event.details.availableUnits).toLocaleString()} MT</p>
-                                 </div>
-                               )}
-                               {(event.details.totalPrice || event.details.pricePerUnit) && (
-                                 <div>
-                                   <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest">{event.details.totalPrice ? 'Total Price' : 'Price per Ton'}</p>
-                                   <p className="font-bold text-[#012d1d]">${(event.details.totalPrice || event.details.pricePerUnit).toLocaleString()}</p>
-                                 </div>
-                               )}
-                               {event.details.purpose && (
-                                 <div className="col-span-2">
-                                   <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest">Retirement Purpose</p>
-                                   <p className="text-sm font-medium text-[#012d1d] italic font-serif">{event.details.purpose}</p>
-                                 </div>
-                               )}
-                               {(event.details.producer || event.details.verifier || event.details.buyer || event.details.seller) && (
-                                 <div className="col-span-2 pt-2 border-t border-[#e2e9ec]/60 mt-2">
-                                   <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest mb-1">Executed By</p>
-                                   <div className="flex items-center gap-2">
-                                     <div className="w-6 h-6 rounded-full bg-white border border-[#e2e9ec] flex items-center justify-center text-[10px]">
-                                       👤
-                                     </div>
-                                     <p className="text-xs font-bold text-[#012d1d]">
-                                       {(event.details.producer || event.details.verifier || event.details.buyer || event.details.seller).name || 'Unknown Entity'}
-                                     </p>
-                                     <div className="flex items-center gap-1.5 ml-auto">
-                                       <p className="text-[10px] font-mono text-[#717973]">
-                                         {(event.details.producer || event.details.verifier || event.details.buyer || event.details.seller).id?.slice(0, 8)}
+                                {(details.unitsPurchased || details.quantity || details.availableUnits || details.approvedQuantity) && (
+                                  <div>
+                                    <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest">{details.unitsPurchased ? 'Quantity Traded' : details.availableUnits ? 'Credits for Market' : 'Batch Quantity'}</p>
+                                    <p className="font-bold text-[#012d1d]">{(details.unitsPurchased || details.quantity || details.availableUnits || details.approvedQuantity).toLocaleString()} MT</p>
+                                  </div>
+                                )}
+                                {details.originalQuantity && details.approvedQuantity && details.originalQuantity !== details.approvedQuantity && (
+                                   <div>
+                                     <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest text-orange-600">Regulator Adjustment</p>
+                                     <p className="text-[10px] font-bold text-gray-400 line-through">{details.originalQuantity.toLocaleString()} MT</p>
+                                   </div>
+                                )}
+                                {details.totalPrice && (
+                                   <div>
+                                     <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest">Total Price</p>
+                                     <p className="font-bold text-[#012d1d]">${details.totalPrice.toLocaleString()}</p>
+                                   </div>
+                                 )}
+                                 {details.purpose && (
+                                   <div className="col-span-2">
+                                     <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest">Retirement Purpose</p>
+                                     <p className="text-sm font-medium text-[#012d1d] italic font-serif">{details.purpose}</p>
+                                   </div>
+                                 )}
+                                 {(details.producer || details.verifier || details.buyer || details.seller) && (
+                                   <div className="col-span-2 pt-2 border-t border-[#e2e9ec]/60 mt-2">
+                                     <p className="text-[9px] font-bold text-[#717973] uppercase tracking-widest mb-1">Executed By</p>
+                                     <div className="flex items-center gap-2">
+                                       <div className="w-6 h-6 rounded-full bg-white border border-[#e2e9ec] flex items-center justify-center text-[10px]">
+                                         👤
+                                       </div>
+                                       <p className="text-xs font-bold text-[#012d1d]">
+                                         {(details.producer || details.verifier || details.buyer || details.seller).name || 'Unknown Entity'}
                                        </p>
-                                       <button 
-                                         onClick={() => handleCopy((event.details.producer || event.details.verifier || event.details.buyer || event.details.seller).id)}
-                                         className="p-1 hover:bg-white rounded transition text-[#717973] hover:text-[#136d3a]"
-                                       >
-                                         {copiedText === (event.details.producer || event.details.verifier || event.details.buyer || event.details.seller).id ? <Check size={10} /> : <Copy size={10} />}
-                                       </button>
+                                       <div className="flex items-center gap-1.5 ml-auto">
+                                         <p className="text-[10px] font-mono text-[#717973]">
+                                           {(details.producer || details.verifier || details.buyer || details.seller).id?.slice(0, 8)}
+                                         </p>
+                                         <button 
+                                           onClick={() => handleCopy((details.producer || details.verifier || details.buyer || details.seller).id)}
+                                           className="p-1 hover:bg-white rounded transition text-[#717973] hover:text-[#136d3a]"
+                                         >
+                                           {copiedText === (details.producer || details.verifier || details.buyer || details.seller).id ? <Check size={10} /> : <Copy size={10} />}
+                                         </button>
+                                       </div>
                                      </div>
                                    </div>
-                                 </div>
-                               )}
-                            </div>
-                          )}
-                        </div>
+                                 )}
+                              </div>
+                            )}
+                          </div>
                       </div>
                     </div>
                   );

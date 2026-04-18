@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { BatchStatus } from '@prisma/client';
+import { BatchStatus, TransactionStatus } from '@prisma/client';
 import { BlockchainService } from '../blockchain/blockchain.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class MarketService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly blockchain: BlockchainService,
+    private readonly auditService: AuditService,
   ) {}
 
   async createListing(batchId: string, price: number, amount: number, producerId: string) {
@@ -155,6 +157,15 @@ export class MarketService {
       throw new BadRequestException('Batch has not been confirmed on-chain');
     }
 
+    // Active Enforcement: Check on-chain invalidation
+    const onChainStatus = await this.blockchain.getOnChainBatchStatus(listing.batch.onChainBatchId);
+    if (onChainStatus.isInvalid) {
+      throw new BadRequestException({
+        message: 'BEYOND REPAIR: This batch has been permanently locked on-chain.',
+        error: 'BEYOND_REPAIR'
+      });
+    }
+
     const txHash = await this.blockchain.transferCredits(
       listing.batch.onChainBatchId,
       listing.seller.walletAddress,
@@ -163,6 +174,14 @@ export class MarketService {
       listing.batch.quantity,
       listing.batch.metadataIPFSHash
     );
+
+    // Step 4: Log to Audit Chain
+    await this.auditService.logTransition(listing.batch.id, 'SALE', {
+        buyerId,
+        sellerId: listing.sellerId,
+        amount,
+        listingId
+    }, txHash);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({
@@ -203,6 +222,16 @@ export class MarketService {
             where: { id: listing.batchId },
             data: {
               status: BatchStatus.SOLD_OUT,
+              remainingQuantity: 0,
+            },
+          });
+        } else {
+          await tx.creditBatch.update({
+            where: { id: listing.batchId },
+            data: {
+              remainingQuantity: {
+                decrement: amount,
+              },
             },
           });
         }

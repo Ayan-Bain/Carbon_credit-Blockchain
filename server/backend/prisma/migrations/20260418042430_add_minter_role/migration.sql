@@ -1,3 +1,0 @@
--- AlterEnum
--- This migration was manually neutralized because 'MINTER' already exists in the Postgres enum.
--- Prisma will mark this as applied without executing the failing SQL.

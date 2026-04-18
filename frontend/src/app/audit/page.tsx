@@ -37,10 +37,10 @@ export default function UnifiedAuditTrailPage() {
         router.push(`/audit/company/${query}`);
       } else {
         const { data } = await api.get(`/audit/tx/${query}`);
-        if (data.type === 'batch') {
-          router.push(`/batches/${data.id}`);
+        if (data && data.batchId) {
+          router.push(`/batches/${data.batchId}`);
         } else {
-          router.push(`/audit/company/${data.id}`);
+          setSearchError(`Transaction Found: This transaction is valid but could not be traced to a specific batch record.`);
         }
       }
     } catch (err: any) {
@@ -57,6 +57,7 @@ export default function UnifiedAuditTrailPage() {
   const isBuyer = user?.role === 'BUYER';
   const isRegulator = user?.role === 'REGULATOR';
   const isAdmin = user?.role === 'ADMIN';
+  const isMinter = user?.role === 'MINTER';
 
   const navItems = isProducer 
     ? [
@@ -75,6 +76,11 @@ export default function UnifiedAuditTrailPage() {
     ? [
         { label: 'Dashboard', href: '/regulator', icon: '📊' },
         { label: 'History', href: '/regulator/history', icon: '📋' },
+        { label: 'Audit Trail', href: '/audit', icon: '🔍', active: true },
+      ]
+    : isMinter
+    ? [
+        { label: 'Minting Queue', href: '/minting', icon: '⛓️' },
         { label: 'Audit Trail', href: '/audit', icon: '🔍', active: true },
       ]
     : [];

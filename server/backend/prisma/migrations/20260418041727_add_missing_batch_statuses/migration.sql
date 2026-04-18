@@ -1,3 +1,0 @@
--- AlterEnum
-ALTER TYPE "BatchStatus" ADD VALUE 'APPROVED';
-ALTER TYPE "BatchStatus" ADD VALUE 'MINTED';

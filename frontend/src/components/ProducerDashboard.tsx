@@ -156,7 +156,7 @@ export default function ProducerDashboard() {
                     projectName={batch.projectName || `Project #${batch.id.slice(0, 8)}`}
                     location={batch.location || 'Global Registry'}
                     quantity={`${(batch.quantity || 0).toLocaleString()} MT`}
-                    totalVolume={batch.quantity || 0}
+                    totalVolume={batch.remainingQuantity ?? batch.quantity}
                     alreadyListedVolume={alreadyListedVolume}
                     status={batch.status.toLowerCase()}
                     submissionDate={new Date(batch.submittedAt).toLocaleDateString()}

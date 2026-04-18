@@ -3,7 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { IntegrityService, Mismatch } from '../integrity/integrity.service';
 import { UpdateRoleDto } from './dto/update-role.dto';
-import { BatchStatus } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
+import { BatchStatus, CompanyRole } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -11,6 +12,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly blockchainService: BlockchainService,
     private readonly integrityService: IntegrityService,
+    private readonly auditService: AuditService,
   ) {}
 
   async updateRole(updateRoleDto: UpdateRoleDto) {
@@ -55,14 +57,44 @@ export class AdminService {
     if (!batch) throw new NotFoundException('Batch not found');
     if (batch.status !== 'PENDING') throw new BadRequestException('Batch is not in PENDING status');
 
-    const finalQuantity = quantity || batch.quantity;
 
-    // Step 2: Record Approval on the Blockchain (Immediate Integrity Lock)
+    // --- STEP 1: PRE-APPROVAL INTEGRITY CHECK (Baseline Verification) ---
+    // We verify that the DB matches the original submission BEFORE we apply any adjustments.
+    const baselineData = {
+      producerId: batch.producerId,
+      metadataHash: batch.metadataIPFSHash,
+      quantity: batch.quantity, // Verify against the original submitted quantity
+    };
+    const currentHash = this.auditService.calculateDataHash(baselineData);
+
+    if (batch.submissionHash && batch.submissionHash !== currentHash) {
+      throw new BadRequestException({
+        message: 'FRAUD ALERT: The data in the database has been modified since it was submitted. Approval blocked.',
+        error: 'SUBMISSION_TAMPERED',
+        expectedHash: batch.submissionHash,
+        actualHash: currentHash
+      });
+    }
+
+    // Step 2: Determine final approved quantity (Regulator's decision)
+    const finalQuantity = quantity !== undefined ? quantity : batch.quantity;
+
+    // Step 3: Record Approval on the Blockchain (Immediate Integrity Lock)
     const { txHash, onChainBatchId } = await this.blockchainService.recordApproval(
       (batch as any).producer.walletAddress,
       batch.metadataIPFSHash,
       finalQuantity
     );
+
+    // Step 4: Log to Audit Chain
+    const approvalState = {
+        originalQuantity: batch.quantity,
+        approvedQuantity: finalQuantity,
+        metadataHash: batch.metadataIPFSHash,
+        onChainBatchId,
+        adjusted: finalQuantity !== batch.quantity
+    };
+    await this.auditService.logTransition(batch.id, 'APPROVAL', approvalState, txHash);
 
     return this.prisma.creditBatch.update({
       where: { id: batchId },

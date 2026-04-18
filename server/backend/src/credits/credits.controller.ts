@@ -80,4 +80,11 @@ export class CreditsController {
   async getPortfolio(@Req() req: any) {
     return this.creditsService.getBuyerPortfolio(req.user.id);
   }
+
+  @Post('credits/batches/:id/invalidate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(CompanyRole.REGULATOR, CompanyRole.ADMIN)
+  async manualInvalidate(@Param('id') id: string) {
+    return this.creditsService.manualInvalidate(id);
+  }
 }

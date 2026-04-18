@@ -23,6 +23,7 @@ const statusStyles = {
   listed: 'bg-[#fdf2f8] text-[#9d174d]',
   sold_out: 'bg-gray-100 text-gray-600',
   rejected: 'bg-red-50 text-red-600',
+  beyond_repair: 'bg-charcoal-900 text-red-500 font-black border-2 border-red-900',
 };
 
 export default function BatchCard({
@@ -87,7 +88,7 @@ export default function BatchCard({
             statusStyles[status] || 'bg-gray-100'
           }`}
         >
-          {status.charAt(0).toUpperCase() + status.slice(1)}
+          {status.replace(/_/g, ' ').toUpperCase()}
         </span>
       </div>
 

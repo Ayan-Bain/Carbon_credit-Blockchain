@@ -280,10 +280,15 @@ export class IntegrityService {
   private async checkOrphanedRecords(): Promise<Mismatch[]> {
     const mismatches: Mismatch[] = [];
 
-    // Find transactions without valid listings
+    // Find transactions where the listing no longer exists in the DB
+    const allListings = await this.prisma.creditListing.findMany({ select: { id: true } });
+    const listingIds = allListings.map(l => l.id);
+
     const orphanedTransactions = await this.prisma.transaction.findMany({
       where: {
-        listing: { is: null } as any,
+        NOT: {
+          listingId: { in: listingIds }
+        }
       },
     });
 
@@ -302,9 +307,14 @@ export class IntegrityService {
     }
 
     // Find retirements without valid batches
+    const allBatches = await this.prisma.creditBatch.findMany({ select: { id: true } });
+    const batchIds = allBatches.map(b => b.id);
+
     const orphanedRetirements = await this.prisma.retirementRecord.findMany({
       where: {
-        batch: { is: null } as any,
+        NOT: {
+          batchId: { in: batchIds }
+        }
       },
     });
 

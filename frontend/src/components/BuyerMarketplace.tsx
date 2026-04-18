@@ -31,7 +31,13 @@ export default function BuyerMarketplace() {
   const [loading, setLoading] = useState(true);
   
   // Toast State
-  const [toast, setToast] = useState<{ show: boolean, status: TransactionStatus, message: string, txHash?: string }>({
+  const [toast, setToast] = useState<{ 
+    show: boolean, 
+    status: TransactionStatus, 
+    message: string, 
+    txHash?: string,
+    securityDetails?: any 
+  }>({
     show: false,
     status: 'pending',
     message: '',
@@ -80,11 +86,25 @@ export default function BuyerMarketplace() {
       });
       fetchData(); // Refresh
     } catch (err: any) {
-      setToast({ 
-        show: true, 
-        status: 'error', 
-        message: err.response?.data?.message || 'Purchase failed.' 
-      });
+      const errorData = err.response?.data;
+      if (errorData?.error === 'SECURITY_MISMATCH') {
+        setToast({
+            show: true,
+            status: 'security_mismatch',
+            message: errorData.message,
+            securityDetails: {
+                expectedHash: errorData.expectedHash,
+                actualHash: errorData.actualHash,
+                quantity: errorData.currentQuantity
+            }
+        });
+      } else {
+        setToast({ 
+            show: true, 
+            status: 'error', 
+            message: errorData?.message || 'Purchase failed.' 
+        });
+      }
     }
   };
 
@@ -114,11 +134,25 @@ export default function BuyerMarketplace() {
       setPurpose('');
       fetchData();
     } catch (err: any) {
-      setToast({ 
-        show: true, 
-        status: 'error', 
-        message: err.response?.data?.message || 'Retirement failed.' 
-      });
+      const errorData = err.response?.data;
+      if (errorData?.error === 'SECURITY_MISMATCH') {
+        setToast({
+            show: true,
+            status: 'security_mismatch',
+            message: errorData.message,
+            securityDetails: {
+                expectedHash: errorData.expectedHash,
+                actualHash: errorData.actualHash,
+                quantity: errorData.currentQuantity
+            }
+        });
+      } else {
+        setToast({ 
+            show: true, 
+            status: 'error', 
+            message: errorData?.message || 'Retirement failed.' 
+        });
+      }
     }
   };
 
@@ -252,6 +286,7 @@ export default function BuyerMarketplace() {
         status={toast.status}
         message={toast.message}
         txHash={toast.txHash}
+        securityDetails={toast.securityDetails}
         onClose={() => setToast(prev => ({ ...prev, show: false }))}
       />
     </div>

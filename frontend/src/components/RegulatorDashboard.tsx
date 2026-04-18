@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SideNavigation from './SideNavigation';
 import StatCard from './StatCard';
+import TransactionToast, { TransactionStatus } from './TransactionToast';
 import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
 
@@ -22,6 +23,18 @@ export default function RegulatorDashboard() {
   const [batchMetadata, setBatchMetadata] = useState<Record<string, any>>({});
   const [approvalAmounts, setApprovalAmounts] = useState<Record<string, string>>({});
   const [downloadingBatchId, setDownloadingBatchId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ 
+    show: boolean, 
+    status: TransactionStatus, 
+    message: string, 
+    txHash?: string,
+    batchId?: string,
+    securityDetails?: any 
+  }>({
+    show: false,
+    status: 'pending',
+    message: '',
+  });
 
   const fetchBatchMetadata = async (batchId: string) => {
     try {
@@ -105,9 +118,20 @@ export default function RegulatorDashboard() {
       return;
     }
 
+    setToast({ 
+      show: true, 
+      status: 'pending', 
+      message: `Approving and registering batch ${id.slice(0, 8)}...` 
+    });
+
     try {
-      await api.post(`/admin/batches/${id}/approve`, { quantity: parseFloat(amount) });
-      alert('Project approved and registered!');
+      const { data } = await api.post(`/admin/batches/${id}/approve`, { quantity: parseFloat(amount) });
+      setToast({ 
+        show: true, 
+        status: 'success', 
+        message: 'Project approved and locked on-chain!', 
+        txHash: data.txHash 
+      });
       setBatches(prev => prev.filter(b => b.id !== id));
       setBatchMetadata(prev => {
         const updated = { ...prev };
@@ -119,9 +143,33 @@ export default function RegulatorDashboard() {
         delete updated[id];
         return updated;
       });
-    } catch (err) {
-      console.error('Approval failed:', err);
-      alert('Approval failed. See console.');
+    } catch (err: any) {
+      const errorData = err.response?.data;
+      if (errorData?.error === 'SUBMISSION_TAMPERED') {
+        setToast({
+            show: true,
+            status: 'security_mismatch',
+            message: errorData.message,
+            batchId: id,
+            securityDetails: {
+                expectedHash: errorData.expectedHash,
+                actualHash: errorData.actualHash,
+                quantity: batch?.quantity || 0
+            }
+        });
+      } else if (errorData?.error === 'BEYOND_REPAIR') {
+        setToast({
+          show: true,
+          status: 'beyond_repair',
+          message: errorData.message
+        });
+      } else {
+        setToast({ 
+            show: true, 
+            status: 'error', 
+            message: errorData?.message || 'Approval failed.' 
+        });
+      }
     }
   };
 
@@ -179,6 +227,35 @@ export default function RegulatorDashboard() {
       document.execCommand('copy');
       document.body.removeChild(textArea);
       alert('Batch ID copied to clipboard!');
+    }
+  };
+
+  const handleInvalidate = async (id: string) => {
+    if (!confirm('CAUTION: You are about to PERMANENTLY lock this batch on the blockchain. This action is irreversible and all credits in this batch will be lost. Proceed?')) {
+        return;
+    }
+
+    setToast({ 
+      show: true, 
+      status: 'pending', 
+      message: `Poisoning batch ${id.slice(0, 8)} on-chain...` 
+    });
+
+    try {
+      const { data } = await api.post(`/credits/batches/${id}/invalidate`);
+      setToast({ 
+        show: true, 
+        status: 'beyond_repair', 
+        message: 'The batch has been permanently locked on-chain. It is now beyond repair.', 
+        txHash: data.txHash 
+      });
+      setBatches(prev => prev.filter(b => b.id !== id));
+    } catch (err: any) {
+      setToast({ 
+        show: true, 
+        status: 'error', 
+        message: err.response?.data?.message || 'Invalidation failed.' 
+      });
     }
   };
 
@@ -269,7 +346,7 @@ export default function RegulatorDashboard() {
                             Copy ID
                           </button>
                           <span className="px-2 py-1 bg-[#fff3e0] text-[#e65100] text-xs font-bold rounded">
-                            {batch.status || 'Unknown'}
+                            {(batch.status || 'Unknown').replace(/_/g, ' ').toUpperCase()}
                           </span>
                         </div>
                         <p className="text-sm text-[#717973]">
@@ -349,6 +426,16 @@ export default function RegulatorDashboard() {
           </div>
         </section>
       </main>
+
+      <TransactionToast 
+        show={toast.show}
+        status={toast.status}
+        message={toast.message}
+        txHash={toast.txHash}
+        securityDetails={toast.securityDetails}
+        onInvalidate={toast.batchId ? () => handleInvalidate(toast.batchId!) : undefined}
+        onClose={() => setToast(prev => ({ ...prev, show: false }))}
+      />
     </div>
   );
 }

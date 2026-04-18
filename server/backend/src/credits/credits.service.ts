@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { IpfsService } from '../ipfs/ipfs.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
+import { AuditService } from '../audit/audit.service';
 import { BatchStatus } from '@prisma/client';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class CreditsService {
     private readonly prisma: PrismaService,
     private readonly ipfsService: IpfsService,
     private readonly blockchainService: BlockchainService,
+    private readonly auditService: AuditService,
   ) {}
 
   async submitBatch(producerId: string, file: Express.Multer.File, metadata: any) {
@@ -35,10 +37,15 @@ export class CreditsService {
 
     const metadataCid = await this.ipfsService.uploadJson(metadataJson);
 
-    // 4. Persist DB record — status PENDING, onChainBatchId set after producer submits to contract
-    // Note: submitBatch() on the smart contract requires PRODUCER_ROLE on msg.sender.
-    // The backend admin key cannot call it. The producer must call it from their own wallet,
-    // then confirm the on-chain batch ID via POST /credits/batches/:id/confirm-onchain.
+    // 4. Calculate Submission Hash for Pre-Approval Integrity
+    const submissionData = {
+      producerId: producerId,
+      metadataHash: metadataCid,
+      quantity: quantity,
+    };
+    const submissionHash = this.auditService.calculateDataHash(submissionData);
+
+    // 5. Persist DB record — status PENDING
     const batch = await this.prisma.creditBatch.create({
       data: {
         producerId: producerId,
@@ -46,8 +53,11 @@ export class CreditsService {
         quantity: quantity,
         remainingQuantity: quantity,
         status: 'PENDING',
+        submissionHash,
       },
     });
+
+    await this.auditService.logTransition(batch.id, 'SUBMISSION', submissionData);
 
     return {
       batch,
@@ -72,12 +82,26 @@ export class CreditsService {
     }
 
     // Call blockchain to execute final minting check
+    // 1. Check for on-chain invalidation (Active Enforcement)
+    const onChainStatus = await this.blockchainService.getOnChainBatchStatus(batch.onChainBatchId);
+    if (onChainStatus.isInvalid) {
+      throw new BadRequestException({
+        message: 'BEYOND REPAIR: This batch has been permanently locked on-chain due to a security violation.',
+        error: 'BEYOND_REPAIR'
+      });
+    }
+
     try {
       const txHash = await this.blockchainService.executeMinting(
         batch.onChainBatchId,
         batch.quantity,
         batch.metadataIPFSHash
       );
+
+      await this.auditService.logTransition(batch.id, 'MINTING', {
+        quantity: batch.quantity,
+        metadataHash: batch.metadataIPFSHash
+      }, txHash);
 
       return this.prisma.creditBatch.update({
         where: { id: batchId },
@@ -99,8 +123,8 @@ export class CreditsService {
         throw new BadRequestException({
           message: 'FRAUD ALERT: The data in your database no longer matches the on-chain approved record. This batch has been PERMANENTLY LOCKED on-chain.',
           error: 'SECURITY_MISMATCH',
-          regulatorHash: (batch as any).verificationHash,
-          unauthorizedHash: currentHash,
+          expectedHash: batch.verificationHash, // This was the hash from approval
+          actualHash: currentHash,
           currentQuantity: batch.quantity,
           metadata: batch.metadataIPFSHash
         });
@@ -187,6 +211,15 @@ export class CreditsService {
       throw new BadRequestException('Batch has not been confirmed on-chain');
     }
 
+    // Active Enforcement: Check on-chain invalidation
+    const onChainStatus = await this.blockchainService.getOnChainBatchStatus(batch.onChainBatchId);
+    if (onChainStatus.isInvalid) {
+      throw new BadRequestException({
+        message: 'BEYOND REPAIR: This batch has been permanently locked on-chain.',
+        error: 'BEYOND_REPAIR'
+      });
+    }
+
     const purchasedUnits = purchased._sum.unitsPurchased ?? 0;
     const retiredUnits = retired._sum.unitsRetired ?? 0;
     const availableToRetire = purchasedUnits - retiredUnits;
@@ -202,6 +235,12 @@ export class CreditsService {
       batch.quantity,
       batch.metadataIPFSHash
     );
+
+    await this.auditService.logTransition(batch.id, 'RETIREMENT', {
+        buyerId,
+        amount,
+        purpose
+    }, txHash);
 
     const [retirement] = await this.prisma.$transaction([
       this.prisma.retirementRecord.create({
@@ -297,4 +336,33 @@ export class CreditsService {
     // 3. Filter out zero balances
     return portfolio.filter((item) => item.quantity > 0);
   }
+    async manualInvalidate(batchId: string) {
+    const batch = await this.prisma.creditBatch.findUnique({
+      where: { id: batchId },
+    });
+
+    if (!batch) throw new NotFoundException('Batch not found');
+
+    let txHash: string | undefined;
+
+    // 1. If it's already on-chain, poison it there
+    if (batch.onChainBatchId) {
+      txHash = await this.blockchainService.invalidateBatch(batch.onChainBatchId);
+    }
+
+    // 2. Mark as permanently dead in DB (even if not on-chain yet)
+    await this.prisma.creditBatch.update({
+      where: { id: batchId },
+      data: { status: BatchStatus.BEYOND_REPAIR }
+    });
+
+    // 3. Log the security event
+    await this.auditService.logTransition(batchId, 'SECURITY_LOCK', {
+        reason: 'Manual security lock triggered by authority',
+        wasOnChain: !!batch.onChainBatchId
+    }, txHash);
+
+    return { txHash, status: 'locked' };
+  }
+
 }

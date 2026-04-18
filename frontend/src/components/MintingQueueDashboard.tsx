@@ -18,8 +18,15 @@ export default function MintingQueueDashboard() {
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ show: boolean, status: TransactionStatus, message: string, txHash?: string }>({
+  const [toast, setToast] = useState<{ 
+    show: boolean, 
+    status: TransactionStatus, 
+    message: string, 
+    txHash?: string,
+    batchId?: string 
+  }>({
     show: false,
+    status: 'pending',
     message: '',
   });
   const [securityDetails, setSecurityDetails] = useState<any>(null);
@@ -45,11 +52,41 @@ export default function MintingQueueDashboard() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleInvalidate = async (id: string) => {
+    if (!confirm('CAUTION: You are about to PERMANENTLY lock this batch on the blockchain. Proceed?')) {
+        return;
+    }
+
+    setToast({ 
+      show: true, 
+      status: 'pending', 
+      message: `Poisoning batch ${id.slice(0, 8)} on-chain...` 
+    });
+
+    try {
+      const { data } = await api.post(`/credits/batches/${id}/invalidate`);
+      setToast({ 
+        show: true, 
+        status: 'beyond_repair', 
+        message: 'The batch has been permanently locked on-chain.', 
+        txHash: data.txHash 
+      });
+      setBatches(prev => prev.filter(b => b.id !== id));
+    } catch (err: any) {
+      setToast({ 
+        show: true, 
+        status: 'error', 
+        message: err.response?.data?.message || 'Invalidation failed.' 
+      });
+    }
+  };
+
   const handleMint = async (batchId: string) => {
     setToast({
       show: true,
       status: 'pending',
       message: 'Submitting mint transaction to blockchain...',
+      batchId
     });
     setSecurityDetails(null);
 
@@ -61,6 +98,7 @@ export default function MintingQueueDashboard() {
         status: 'success',
         message: 'Successfully minted carbon credits on-chain!',
         txHash: data.txHash,
+        batchId
       });
 
       // Remove from queue
@@ -71,20 +109,22 @@ export default function MintingQueueDashboard() {
       const errorData = err.response?.data;
       if (errorData?.error === 'SECURITY_MISMATCH') {
         setSecurityDetails({
-          regulatorHash: errorData.regulatorHash,
-          unauthorizedHash: errorData.unauthorizedHash,
+          expectedHash: errorData.expectedHash,
+          actualHash: errorData.actualHash,
           quantity: errorData.currentQuantity,
         });
         setToast({
           show: true,
           status: 'security_mismatch',
           message: errorData.message,
+          batchId
         });
       } else {
         setToast({
           show: true,
           status: 'error',
           message: errorData?.message || 'Minting execution failed. Please verify network status.',
+          batchId
         });
       }
     }
@@ -248,10 +288,11 @@ export default function MintingQueueDashboard() {
 
       <TransactionToast 
         show={toast.show}
-        status={toast.status as any}
+        status={toast.status}
         message={toast.message}
         txHash={toast.txHash}
         securityDetails={securityDetails}
+        onInvalidate={toast.batchId ? () => handleInvalidate(toast.batchId!) : undefined}
         onClose={() => setToast(prev => ({ ...prev, show: false }))}
       />
     </div>
