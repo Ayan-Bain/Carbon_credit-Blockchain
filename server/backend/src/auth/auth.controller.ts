@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, HttpCode, HttpStatus, UseGuards, Req, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CompanyRole } from '@prisma/client';
 import { VerifySiweDto } from './dto/verify-siwe.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -21,5 +22,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: VerifySiweDto) {
     return this.authService.verifySiwe(body.message, body.signature);
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  async getProfile(@Req() req: any) {
+    return this.authService.getProfile(req.user.id);
+  }
+
+  @Get('company/:id')
+  async getCompany(@Param('id') id: string) {
+    return this.authService.getCompanyById(id);
   }
 }

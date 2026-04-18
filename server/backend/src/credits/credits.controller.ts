@@ -7,8 +7,10 @@ import {
   UseGuards, 
   UseInterceptors, 
   UploadedFile, 
-  Req 
+  Req,
+  Res
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CreditsService } from './credits.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -50,6 +52,21 @@ export class CreditsController {
   @Get('credits/batches/:id')
   async getBatchDetails(@Param('id') id: string) {
     return this.creditsService.getBatch(id);
+  }
+
+  @Get('credits/batches/:id/metadata')
+  async getBatchMetadata(@Param('id') id: string) {
+    return this.creditsService.getBatchMetadata(id);
+  }
+
+  @Get('credits/batches/:id/download')
+  async downloadBatchFile(@Param('id') id: string, @Res() res: Response) {
+    const { data, contentType } = await this.creditsService.getBatchAsset(id);
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="proof_${id}"`,
+    });
+    res.send(data);
   }
 
   @Post('credits/retire')

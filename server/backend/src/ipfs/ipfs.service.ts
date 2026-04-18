@@ -52,5 +52,30 @@ export class IpfsService {
       throw new InternalServerErrorException('Failed to upload metadata JSON to IPFS');
     }
   }
+
+  async fetchJson(cid: string): Promise<any> {
+    const url = `https://gateway.pinata.cloud/ipfs/${cid}`;
+    try {
+      const response = await axios.get(url);
+      return response.data;
+    } catch (error) {
+      this.logger.error(`IPFS JSON Fetch Error (${cid}):`, error.response?.data || error.message);
+      throw new InternalServerErrorException('Failed to fetch metadata from IPFS');
+    }
+  }
+
+  async fetchFile(cid: string): Promise<{ data: any; contentType: string }> {
+    const url = `https://gateway.pinata.cloud/ipfs/${cid}`;
+    try {
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      return {
+        data: response.data,
+        contentType: response.headers['content-type'],
+      };
+    } catch (error) {
+      this.logger.error(`IPFS File Fetch Error (${cid}):`, error.response?.data || error.message);
+      throw new InternalServerErrorException('Failed to fetch file from IPFS');
+    }
+  }
 }
 

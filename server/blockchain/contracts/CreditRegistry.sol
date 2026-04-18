@@ -122,6 +122,12 @@ contract CreditRegistry {
         require(_from != address(0), "Invalid sender");
         require(_to != address(0), "Invalid recipient");
         require(_amount > 0, "Amount must be greater than zero");
+        
+        // Prevent producers from receiving credits (buying)
+        require(
+            !accessControl.hasRole(accessControl.PRODUCER_ROLE(), _to),
+            "Trade Restricted: Recipient holds PRODUCER role"
+        );
 
         token.transferByRegulator(_from, _to, _batchId, _amount, "");
 

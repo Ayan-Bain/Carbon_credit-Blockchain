@@ -27,6 +27,7 @@ export class CreditsService {
       ...metadata,
       quantity,
       assetCid: fileCid,
+      originalFileName: file.originalname,
       producerId: producerId,
       timestamp: new Date().toISOString(),
     };
@@ -97,7 +98,24 @@ export class CreditsService {
   async getProducerBatches(producerId: string) {
     return this.prisma.creditBatch.findMany({
       where: { producerId },
+      include: {
+        listings: true,
+        retirements: true,
+      },
     });
+  }
+
+  async getBatchMetadata(id: string) {
+    const batch = await this.getBatch(id);
+    return this.ipfsService.fetchJson(batch.metadataIPFSHash);
+  }
+
+  async getBatchAsset(id: string) {
+    const metadata = await this.getBatchMetadata(id);
+    if (!metadata.assetCid) {
+      throw new BadRequestException('No asset associated with this batch');
+    }
+    return this.ipfsService.fetchFile(metadata.assetCid);
   }
 
   async retireCredits(batchId: string, amount: number, buyerId: string, purpose?: string) {

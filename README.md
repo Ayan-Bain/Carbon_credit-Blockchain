@@ -212,25 +212,31 @@ Full documentation: [`API_DOCUMENTATION.md`](./server/API_DOCUMENTATION.md)
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
 | GET | `/auth/nonce` | Generate SIWE session nonce | Public |
-| POST | `/auth/register` | Register company (name, walletAddress, role) | Public |
+| POST | `/auth/register` | Register company | Public |
 | POST | `/auth/login` | Sign in with wallet signature → returns JWT | Public |
+| GET | `/auth/company/:id` | Resolve company ID to details | Public |
 
-### Credits (Producer)
+### Credits (Producer & Buyer)
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| POST | `/credits/batches` | Submit new credit batch (with document upload) | `PRODUCER` |
-| GET | `/credits/batches` | List own batches | `PRODUCER` |
-| GET | `/credits/batches/:id` | Get batch details | Authenticated |
-| POST | `/credits/retire` | Retire owned credits (on-chain burn) | `BUYER` |
+| POST | `/credits/batches` | Submit new credit batch | `PRODUCER` |
+| GET | `/credits/batches` | List own batches | Authenticated |
+| GET | `/credits/batches/:id` | Get batch details | Public |
+| GET | `/credits/batches/:id/download` | Download proof file | Public |
+| GET | `/credits/portfolio` | View owned credit balances | Authenticated |
+| POST | `/credits/retire` | Retire owned credits (burn) | Authenticated |
 
-### Regulation (Regulator / Admin)
+### Regulation & Operations
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/admin/batches/pending` | List all pending batches | `REGULATOR` |
-| POST | `/admin/batches/:id/verify` | Approve batch & mint tokens | `REGULATOR` |
-| POST | `/admin/batches/:id/reject` | Reject a batch | `REGULATOR` |
+| GET | `/admin/batches/pending` | List batches for review | `REGULATOR` |
+| GET | `/admin/batches/approved` | List batches for minting | `MINTER` |
+| POST | `/admin/batches/:id/approve` | Approve batch | `REGULATOR` |
+| POST | `/admin/batches/:id/reject` | Reject batch | `REGULATOR` |
+| POST | `/credits/batches/:id/mint` | Mint tokens on-chain | `MINTER` |
+| GET | `/admin/regulator/stats` | Regulator performance metrics | `REGULATOR` |
 
-### Marketplace (Buyer)
+### Marketplace
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
 | POST | `/market/listings` | List verified credits for sale | `PRODUCER` |
@@ -240,8 +246,10 @@ Full documentation: [`API_DOCUMENTATION.md`](./server/API_DOCUMENTATION.md)
 ### Audit
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/audit/batch/:id` | Full lifecycle history of a credit batch | Public |
-| GET | `/audit/company/:id` | All transactions for a company | Public |
+| GET | `/audit/batch/:id` | Lifecycle history of a batch | Public |
+| GET | `/audit/company/:id` | Detailed activity for a company | Public |
+| GET | `/audit/company/me` | Own transaction history | Authenticated |
+| GET | `/audit/company/stats` | Own performance metrics | Authenticated |
 
 ---
 

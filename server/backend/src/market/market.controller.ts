@@ -22,7 +22,8 @@ export class MarketController {
   }
 
   @Post('listings/:id/buy')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(CompanyRole.BUYER)
   async buyListing(@Req() req: any, @Param('id') id: string, @Body() body: { amount: number }) {
     return this.marketService.buyListing(id, body.amount, req.user.id);
   }

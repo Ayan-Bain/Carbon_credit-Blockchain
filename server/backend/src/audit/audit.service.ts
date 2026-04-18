@@ -220,9 +220,14 @@ export class AuditService {
         where: { buyerId: companyId },
         include: {
           batch: {
-            select: {
-              id: true,
-              onChainBatchId: true,
+            include: {
+              producer: {
+                select: {
+                  id: true,
+                  name: true,
+                  walletAddress: true,
+                },
+              },
             },
           },
         },
@@ -297,6 +302,7 @@ export class AuditService {
           retirementId: retirement.id,
           batchId: retirement.batchId,
           onChainBatchId: retirement.batch.onChainBatchId,
+          producer: (retirement.batch as any).producer,
           unitsRetired: retirement.unitsRetired,
           purpose: retirement.purpose,
           onChainTxHash: retirement.onChainTxHash,
@@ -308,6 +314,31 @@ export class AuditService {
       companyId,
       company,
       history,
+    };
+  }
+
+  async getCompanyStats(companyId: string) {
+    const [purchases, retirements] = await Promise.all([
+      this.prisma.transaction.aggregate({
+        where: { buyerId: companyId, status: 'CONFIRMED' },
+        _sum: { unitsPurchased: true, totalPrice: true },
+      }),
+      this.prisma.retirementRecord.aggregate({
+        where: { buyerId: companyId },
+        _sum: { unitsRetired: true },
+      }),
+    ]);
+
+    const totalPurchased = purchases._sum.unitsPurchased || 0;
+    const totalRetired = retirements._sum.unitsRetired || 0;
+    const currentHoldings = totalPurchased - totalRetired;
+    const totalSpent = Number(purchases._sum.totalPrice || 0);
+
+    return {
+      totalCredits: currentHoldings,
+      lifetimeOffset: totalRetired,
+      portfolioValue: totalSpent, // Simplified, maybe current market value is better but this is a good start
+      quarterlyGrowth: '+0%', // Placeholder
     };
   }
 }

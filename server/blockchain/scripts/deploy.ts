@@ -41,11 +41,16 @@ async function main() {
 
   // 5. Grant roles to the deployer/admin
   const MINTER_ROLE = await accessControl.MINTER_ROLE();
-  await accessControl.grantRole(REGULATOR_ROLE, deployer.address);
-  await accessControl.grantRole(MINTER_ROLE, deployer.address);
-  if (backendAdminAddress.toLowerCase() !== deployer.address.toLowerCase()) {
-    await accessControl.grantRole(REGULATOR_ROLE, backendAdminAddress);
-    await accessControl.grantRole(MINTER_ROLE, backendAdminAddress);
+  const PRODUCER_ROLE = await accessControl.PRODUCER_ROLE();
+  const BUYER_ROLE = await accessControl.BUYER_ROLE();
+
+  const functionalRoles = [REGULATOR_ROLE, MINTER_ROLE, PRODUCER_ROLE, BUYER_ROLE];
+
+  for (const role of functionalRoles) {
+    await accessControl.grantRole(role, deployer.address);
+    if (backendAdminAddress.toLowerCase() !== deployer.address.toLowerCase()) {
+      await accessControl.grantRole(role, backendAdminAddress);
+    }
   }
   
   console.log("-----------------------------------------------");

@@ -117,4 +117,24 @@ export class AuthService {
       user: company,
     };
   }
+
+  async getProfile(id: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { id },
+    });
+    if (!company) {
+      throw new UnauthorizedException('User not found');
+    }
+    return company;
+  }
+
+  async getCompanyById(id: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { id },
+    });
+    if (!company) {
+      throw new BadRequestException('Company not found');
+    }
+    return company;
+  }
 }

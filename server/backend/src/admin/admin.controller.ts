@@ -11,10 +11,28 @@ import { CompanyRole } from '@prisma/client';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  @Post('roles')
-  @Roles(CompanyRole.ADMIN) // Restricted to ADMIN only
+  @Post('roles/update')
+  @Roles(CompanyRole.ADMIN)
   async updateRole(@Body() updateRoleDto: UpdateRoleDto) {
     return this.adminService.updateRole(updateRoleDto);
+  }
+
+  @Get('stats/global')
+  @Roles(CompanyRole.ADMIN)
+  async getGlobalStats() {
+    return this.adminService.getGlobalStats();
+  }
+
+  @Post('companies/:id/verify')
+  @Roles(CompanyRole.ADMIN)
+  async verifyCompany(@Param('id') id: string, @Body('verified') verified: boolean) {
+    return this.adminService.verifyCompany(id, verified);
+  }
+
+  @Get('companies')
+  @Roles(CompanyRole.ADMIN)
+  async getAllCompanies() {
+    return this.adminService.getAllCompanies();
   }
 
   @Post('promote-regulator')
@@ -47,5 +65,17 @@ export class AdminController {
   @Roles(CompanyRole.REGULATOR)
   async rejectBatch(@Req() req: any, @Param('id') id: string) {
     return this.adminService.rejectBatch(id, req.user.id);
+  }
+
+  @Get('regulator/stats')
+  @Roles(CompanyRole.REGULATOR)
+  async getRegulatorStats(@Req() req: any) {
+    return this.adminService.getRegulatorStats(req.user.id);
+  }
+
+  @Get('batches/approved')
+  @Roles(CompanyRole.MINTER, CompanyRole.ADMIN)
+  async getApprovedBatches() {
+    return this.adminService.getApprovedBatches();
   }
 }
