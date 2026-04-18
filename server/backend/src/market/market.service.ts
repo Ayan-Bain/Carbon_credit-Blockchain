@@ -160,8 +160,6 @@ export class MarketService {
       listing.seller.walletAddress,
       buyer.walletAddress,
       amount,
-      listing.batch.quantity,
-      listing.batch.metadataIPFSHash
     );
 
     const updated = await this.prisma.$transaction(async (tx) => {

@@ -6,26 +6,9 @@ import "./CarbonAccessControl.sol";
 
 contract CarbonCreditToken is ERC1155 {
     CarbonAccessControl public accessControl;
-    address public registry;
 
     constructor(address _accessControlAddress, string memory _uri) ERC1155(_uri) {
         accessControl = CarbonAccessControl(_accessControlAddress);
-    }
-
-    /**
-     * @dev Sets the CreditRegistry address. Only the admin can call this.
-     */
-    function setRegistry(address _registry) external {
-        require(accessControl.hasRole(accessControl.DEFAULT_ADMIN_ROLE(), msg.sender), "Caller is not an admin");
-        registry = _registry;
-    }
-
-    /**
-     * @dev Restricts access to the linked CreditRegistry contract.
-     */
-    modifier onlyRegistry() {
-        require(msg.sender == registry, "Auth Failure: Only the CreditRegistry contract is authorized to move these assets");
-        _;
     }
 
     /**
@@ -46,15 +29,15 @@ contract CarbonCreditToken is ERC1155 {
      * @param amount The amount of carbon credits to mint.
      * @param data Additional data to pass to the receiver.
      */
-    function mint(address to, uint256 batchId, uint256 amount, bytes memory data) external onlyRegistry {
+    function mint(address to, uint256 batchId, uint256 amount, bytes memory data) external onlyRegulator {
         _mint(to, batchId, amount, data);
     }
 
     /**
      * @dev Burns carbon credit tokens from a specific account and batch.
-     * The caller must be the authorized CreditRegistry.
+     * The caller must hold the REGULATOR_ROLE.
      */
-    function burnFrom(address from, uint256 batchId, uint256 amount) external onlyRegistry {
+    function burnFrom(address from, uint256 batchId, uint256 amount) external onlyRegulator {
         _burn(from, batchId, amount);
     }
 
@@ -67,7 +50,7 @@ contract CarbonCreditToken is ERC1155 {
         uint256 batchId,
         uint256 amount,
         bytes memory data
-    ) external onlyRegistry {
+    ) external onlyRegulator {
         _safeTransferFrom(from, to, batchId, amount, data);
     }
 }

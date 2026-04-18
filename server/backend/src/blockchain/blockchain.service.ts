@@ -14,15 +14,13 @@ export class BlockchainService implements OnModuleInit {
   private readonly PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY; // Regulator/Admin private key
 
   private readonly REGISTRY_ABI = [
-    'function recordApproval(address _producer, uint256 _quantity, string calldata _metadataHash) external returns (uint256)',
-    'function executeMinting(uint256 _batchId, uint256 _providedQuantity, string calldata _providedMetadataHash) external',
+    'function mintBatch(address _producer, string memory _metadataHash, uint256 _quantity, bytes memory _signature) external returns (uint256)',
     'function verifyBatch(uint256 _batchId, uint256 _quantity) external',
-    'function transferCredits(uint256 _batchId, address _from, address _to, uint256 _amount, uint256 _providedQuantity, string calldata _providedMetadataHash) external',
-    'function retireCredits(uint256 _batchId, address _account, uint256 _amount, uint256 _providedQuantity, string calldata _providedMetadataHash) external',
+    'function transferCredits(uint256 _batchId, address _from, address _to, uint256 _amount) external',
+    'function retireCredits(uint256 _batchId, address _account, uint256 _amount) external',
     'function batches(uint256) view returns (uint256 id, address producer, string metadataHash, uint256 quantity, uint256 submittedAt, bool verified)',
     'function totalRetiredUnits() view returns (uint256)',
     'event BatchSubmitted(uint256 indexed batchId, address indexed producer, string metadataHash)',
-    'event BatchApproved(uint256 indexed batchId, uint256 quantity, string metadataHash)',
     'event BatchVerified(uint256 indexed batchId, address indexed producer, uint256 amount)',
     'event CreditsTransferred(uint256 indexed batchId, address indexed from, address indexed to, uint256 amount)',
     'event CreditsRetired(uint256 indexed batchId, address indexed account, uint256 amount)',
@@ -64,25 +62,26 @@ export class BlockchainService implements OnModuleInit {
     );
   }
 
-  async recordApproval(producerWallet: string, metadataHash: string, quantity: number) {
+  async mintBatch(producerWallet: string, metadataHash: string, quantity: number, signature: string) {
     this.ensureContractsReady();
-    this.logger.log(`Invoking recordApproval for producer ${producerWallet}, hash ${metadataHash}, quantity ${quantity}`);
+    this.logger.log(`Invoking mintBatch for producer ${producerWallet}, hash ${metadataHash}, quantity ${quantity}`);
 
     const normalizedProducer = this.normalizeAddress(producerWallet, 'producer wallet');
     
-    const tx = await this.registryContract.recordApproval(
+    const tx = await this.registryContract.mintBatch(
       normalizedProducer,
-      BigInt(quantity),
       metadataHash,
+      BigInt(quantity),
+      signature,
     );
-    this.logger.log(`Approval record transaction sent: ${tx.hash}`);
+    this.logger.log(`Mint transaction sent: ${tx.hash}`);
     const receipt = await tx.wait();
     
-    // Parse logs to find BatchApproved event and get the ID
+    // Parse logs to find BatchSubmitted event and get the ID
     const event = receipt.logs.find((l: any) => {
       try {
         const parsed = this.registryContract.interface.parseLog(l);
-        return parsed?.name === 'BatchApproved';
+        return parsed?.name === 'BatchSubmitted';
       } catch (e) {
         return false;
       }
@@ -97,24 +96,6 @@ export class BlockchainService implements OnModuleInit {
     }
 
     return { txHash: tx.hash };
-  }
-
-  async executeMinting(onChainBatchId: string, quantity: number, metadataHash: string) {
-    this.ensureContractsReady();
-    this.logger.log(`Invoking executeMinting for ID ${onChainBatchId}, quantity ${quantity}`);
-
-    if (!onChainBatchId) {
-      throw new Error(`executeMinting called with invalid onChainBatchId: ${onChainBatchId}`);
-    }
-
-    const tx = await this.registryContract.executeMinting(
-      BigInt(onChainBatchId),
-      BigInt(quantity),
-      metadataHash,
-    );
-    this.logger.log(`Minting transaction sent: ${tx.hash}`);
-    await tx.wait();
-    return tx.hash;
   }
 
   async verifyBatch(onChainBatchId: string, quantity: number) {
@@ -137,13 +118,7 @@ export class BlockchainService implements OnModuleInit {
     return tx.hash;
   }
 
-  async retireCredits(
-    onChainBatchId: string, 
-    walletAddress: string, 
-    amount: number,
-    batchTotalQuantity: number,
-    metadataHash: string
-  ) {
+  async retireCredits(onChainBatchId: string, walletAddress: string, amount: number) {
     this.ensureContractsReady();
     const normalizedWalletAddress = this.normalizeAddress(walletAddress, 'buyer wallet');
     this.logger.log(`Invoking retireCredits for ID ${onChainBatchId}, wallet ${normalizedWalletAddress}, amount ${amount}`);
@@ -159,22 +134,13 @@ export class BlockchainService implements OnModuleInit {
       BigInt(onChainBatchId),
       normalizedWalletAddress,
       BigInt(amount),
-      BigInt(batchTotalQuantity),
-      metadataHash
     );
     this.logger.log(`Retirement transaction sent: ${tx.hash}`);
     await tx.wait();
     return tx.hash;
   }
 
-  async transferCredits(
-    onChainBatchId: string, 
-    fromWalletAddress: string, 
-    toWalletAddress: string, 
-    amount: number,
-    batchTotalQuantity: number,
-    metadataHash: string
-  ) {
+  async transferCredits(onChainBatchId: string, fromWalletAddress: string, toWalletAddress: string, amount: number) {
     this.ensureContractsReady();
     const normalizedFromAddress = this.normalizeAddress(fromWalletAddress, 'seller wallet');
     const normalizedToAddress = this.normalizeAddress(toWalletAddress, 'buyer wallet');
@@ -194,8 +160,6 @@ export class BlockchainService implements OnModuleInit {
       normalizedFromAddress,
       normalizedToAddress,
       BigInt(amount),
-      BigInt(batchTotalQuantity),
-      metadataHash
     );
     this.logger.log(`Transfer transaction sent: ${tx.hash}`);
     await tx.wait();

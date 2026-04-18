@@ -57,8 +57,8 @@ export class AdminService {
 
     const finalQuantity = quantity || batch.quantity;
 
-    // Step 2: Record Approval on the Blockchain (Immediate Integrity Lock)
-    const { txHash, onChainBatchId } = await this.blockchainService.recordApproval(
+    // 2. Generate a Minting Permit (Signature) to prevent fraud
+    const { signature, messageHash } = await this.blockchainService.signMintingPermit(
       (batch as any).producer.walletAddress,
       batch.metadataIPFSHash,
       finalQuantity
@@ -70,15 +70,10 @@ export class AdminService {
         status: BatchStatus.APPROVED,
         verifiedAt: new Date(),
         verifiedBy: { connect: { id: regulatorId } },
-        onChainBatchId, // Store the locked ID immediately
         quantity: finalQuantity,
         remainingQuantity: finalQuantity,
-        txHash, // Hash of the approval transaction
-        verificationHash: this.blockchainService.getMintingHash(
-            (batch as any).producer.walletAddress,
-            batch.metadataIPFSHash,
-            finalQuantity
-        )
+        mintingPermit: signature,
+        verificationHash: messageHash,
       } as any,
     });
   }
@@ -219,6 +214,7 @@ export class AdminService {
     return this.prisma.creditBatch.findMany({
       where: {
         status: BatchStatus.APPROVED,
+        onChainBatchId: null, // Ensuring it hasn't been minted yet
       },
       include: {
         producer: {

@@ -34,18 +34,12 @@ async function main() {
   await registry.waitForDeployment();
   const registryAddress = await registry.getAddress();
 
-  // 4. Link Token to Registry (required for strict ownership)
-  console.log("Linking Token to Registry...");
-  const setRegistryTx = await token.setRegistry(registryAddress);
-  await setRegistryTx.wait();
-  console.log("Token linked successfully.");
-
-  // 5. Grant REGULATOR_ROLE to CreditRegistry
+  // 4. Grant REGULATOR_ROLE to CreditRegistry
   const REGULATOR_ROLE = await accessControl.REGULATOR_ROLE();
   await accessControl.grantRole(REGULATOR_ROLE, registryAddress);
   console.log("Granted REGULATOR_ROLE to CreditRegistry");
 
-  // 6. Grant roles to the deployer/admin
+  // 5. Grant roles to the deployer/admin
   const MINTER_ROLE = await accessControl.MINTER_ROLE();
   const PRODUCER_ROLE = await accessControl.PRODUCER_ROLE();
   const BUYER_ROLE = await accessControl.BUYER_ROLE();
