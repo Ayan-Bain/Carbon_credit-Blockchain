@@ -7,21 +7,22 @@ import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
 
 // Image constants (hosted on localhost during development)
-const imgBgTexture = 'http://localhost:3845/assets/0ed93b4ee06b1a2be6f6a1da965bae9a88cbfba5.png';
-const imgAvatar1 = 'http://localhost:3845/assets/29464c0d2b85ccd4054596d72dfd374c939a1ba7.png';
-const imgAvatar2 = 'http://localhost:3845/assets/bae3f3ed55d7c1c5bfc3beac99bf0cefd8bbcbac.png';
-const imgAvatar3 = 'http://localhost:3845/assets/98b7286129538c30755adf2bdf5bb50b3cafdae5.png';
-const imgMetaMask = 'http://localhost:3845/assets/d848e55573035f864e827ce6fa972031ea190827.png';
-const imgLogo = 'http://localhost:3845/assets/b114993a0afce4255240ec96eecdb2a2135309a5.svg';
-const imgCheckmark = 'http://localhost:3845/assets/f6e2e4340bdcc22b09cfcae9f047cdcd22423963.svg';
-const imgVcsIcon = 'http://localhost:3845/assets/a89afdd6da54d2d1fe602fcca193cf7c7f1c28da.svg';
-const imgEntityIcon = 'http://localhost:3845/assets/57d899811e668e458bd16524b74e2d2f5643d521.svg';
-const imgWalletIcon = 'http://localhost:3845/assets/dbc0f93d3444eab8ec72d947daffea7dded2da95.svg';
-const imgDropdownArrow = 'http://localhost:3845/assets/1baa8ee18bbe1b194307d481e020da23aee820ec.svg';
-const imgRoleIcon = 'http://localhost:3845/assets/82a8255be66ffc504f01baea6fbf6d94f4244441.svg';
-const imgDropdownIcon = 'http://localhost:3845/assets/76c7024d7321f75ab59b4df56c5c8f20f08769f1.svg';
-const imgArrowIcon = 'http://localhost:3845/assets/a863a47b17f54001aaa551fc820671c963c7f36a.svg';
-const imgHelpIcon = 'http://localhost:3845/assets/e63a9d30a9e2a1b3db1b8ddee7b93948000d703b.svg';
+import { 
+  Building2, 
+  Wallet, 
+  ChevronDown, 
+  ArrowRight, 
+  HelpCircle, 
+  Briefcase, 
+  User, 
+  ShieldCheck,
+  Check
+} from 'lucide-react';
+
+// Local assets
+const imgBgTexture = '/assets/bg_texture.png';
+const imgLogo = '/assets/logo_icon.png';
+const imgMetaMask = '/assets/metamask_icon.png';
 
 export default function AuthRegistration() {
   const { login } = useAuth();
@@ -115,7 +116,7 @@ export default function AuthRegistration() {
             {/* Logo */}
             <div className="flex gap-3 items-center w-full">
               <div className="bg-[#6bfe9c] flex items-center justify-center rounded-lg shrink-0 size-10">
-                <img alt="Block Carbon logo" className="w-[18px] h-5" src={imgLogo} />
+                <Image alt="Block Carbon logo" className="object-contain p-2" src={imgLogo} width={40} height={40} />
               </div>
               <div>
                 <h1 className="font-extrabold text-2xl text-[#6bfe9c] tracking-tight">Block Carbon</h1>
@@ -143,14 +144,14 @@ export default function AuthRegistration() {
               {/* Avatars */}
               <div className="flex items-center gap-4 mb-4">
                 <div className="flex items-start">
-                  <div className="border-2 border-[#012d1d] rounded-full size-10 overflow-hidden">
-                    <img alt="avatar 1" className="w-full h-full" src={imgAvatar1} />
+                  <div className="border-2 border-[#012d1d] bg-[#1b4332] rounded-full size-10 flex items-center justify-center overflow-hidden">
+                    <User className="text-[#6bfe9c] w-6 h-6" />
                   </div>
-                  <div className="border-2 border-[#012d1d] rounded-full size-10 overflow-hidden ml-[-12px]">
-                    <img alt="avatar 2" className="w-full h-full" src={imgAvatar2} />
+                  <div className="border-2 border-[#012d1d] bg-[#2d6a4f] rounded-full size-10 flex items-center justify-center overflow-hidden ml-[-12px]">
+                    <User className="text-[#6bfe9c] w-6 h-6" />
                   </div>
-                  <div className="border-2 border-[#012d1d] rounded-full size-10 overflow-hidden ml-[-12px]">
-                    <img alt="avatar 3" className="w-full h-full" src={imgAvatar3} />
+                  <div className="border-2 border-[#012d1d] bg-[#40916c] rounded-full size-10 flex items-center justify-center overflow-hidden ml-[-12px]">
+                    <User className="text-[#6bfe9c] w-6 h-6" />
                   </div>
                 </div>
                 <p className="font-medium text-white text-sm">Joined by 12k+ partners</p>
@@ -160,7 +161,7 @@ export default function AuthRegistration() {
 
               {/* VCS Compliance Badge */}
               <div className="flex items-center gap-2">
-                <img alt="checkmark" className="w-[12.833px] h-[12.25px]" src={imgCheckmark} />
+                <ShieldCheck className="text-[#6bfe9c] w-4 h-4" />
                 <p className="font-bold text-[#6bfe9c] text-xs tracking-wider uppercase">Verified Carbon Standard (VCS) Compliant</p>
               </div>
             </div>
@@ -192,11 +193,11 @@ export default function AuthRegistration() {
                 disabled={isLoggingIn}
                 className="w-full bg-white border border-[#c1c8c2] rounded-lg shadow-sm px-6 py-4 flex items-center justify-center gap-3 hover:bg-gray-50 transition disabled:opacity-50"
               >
-                <img alt="MetaMask" className="w-6 h-6" src={imgMetaMask} />
+                <Image alt="MetaMask" width={24} height={24} src={imgMetaMask} />
                 <span className="font-semibold text-[#161d1f]">
                   {isLoggingIn ? 'Connecting...' : 'Sign-In with Wallet'}
                 </span>
-                <img alt="arrow" className="w-5 h-3.5" src={imgArrowIcon} />
+                <ArrowRight className="w-5 h-5 text-[#414844]" />
               </button>
 
               <p className="text-center text-xs text-[#414844] mt-4">
@@ -220,7 +221,7 @@ export default function AuthRegistration() {
                 </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <img alt="entity icon" className="w-4 h-4" src={imgEntityIcon} />
+                    <Building2 className="w-4 h-4 text-[#c1c8c2]" />
                   </div>
                   <input
                     type="text"
@@ -239,7 +240,7 @@ export default function AuthRegistration() {
                 </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <img alt="wallet icon" className="w-[19px] h-[18px]" src={imgWalletIcon} />
+                    <Wallet className="w-4 h-4 text-[#c1c8c2]" />
                   </div>
                   <input
                     type="text"
@@ -258,7 +259,7 @@ export default function AuthRegistration() {
                 </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <img alt="role icon" className="w-5 h-[19px]" src={imgRoleIcon} />
+                    <Briefcase className="w-4 h-4 text-[#c1c8c2]" />
                   </div>
                   <button
                     type="button"
@@ -266,7 +267,7 @@ export default function AuthRegistration() {
                     className="w-full bg-white border border-[#c1c8c2] rounded-lg pl-12 pr-4 py-4 text-left font-medium text-[#161d1f] placeholder-[#c1c8c2] focus:outline-none focus:border-[#6bfe9c] transition shadow-sm flex items-center justify-between"
                   >
                     <span>{role ? roleLabels[role] : 'Select your role'}</span>
-                    <img alt="dropdown" className="w-3 h-[7.4px]" src={imgDropdownIcon} />
+                    <ChevronDown className="w-4 h-4 text-[#414844]" />
                   </button>
 
                   {isRoleDropdownOpen && (
@@ -295,7 +296,7 @@ export default function AuthRegistration() {
                 className="w-full bg-gradient-to-br from-[#012d1d] to-[#1b4332] text-white font-semibold py-5 rounded-lg shadow-lg hover:shadow-xl transition flex items-center justify-center gap-3 mt-8"
               >
                 <span>Complete Registration</span>
-                <img alt="arrow" className="w-4 h-4" src={imgArrowIcon} />
+                <ArrowRight className="w-4 h-4" />
               </button>
             </form>
 
@@ -319,7 +320,7 @@ export default function AuthRegistration() {
         type="button"
         className="fixed bottom-8 right-8 backdrop-blur-[6px] bg-[rgba(221,228,230,0.8)] rounded-full p-4 shadow-lg hover:shadow-xl transition"
       >
-        <img alt="help" className="w-5 h-5" src={imgHelpIcon} />
+        <HelpCircle className="w-5 h-5 text-[#012d1d]" />
       </button>
     </div>
   );
