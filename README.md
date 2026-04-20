@@ -8,8 +8,8 @@ A blockchain-based carbon credit tracking system built as a monorepo. Carbon cre
 
 ```
 carbon_credit_monorepo/
-├── frontend/           # Vite + React Dashboard (The Control Plane)
-└── server/             # The Trust Engine
+├── frontend/           # Next.js 14 Real-time Dashboard (The Control Plane)
+└── server/             # The Trust Engine (Multi-layered security)
     ├── backend/        # NestJS REST API (off-chain layer)
     ├── blockchain/     # Hardhat smart contracts
     ├── scripts/        # Deployment utilities
@@ -190,7 +190,7 @@ The API will be available at `http://localhost:3000`.
 
 ## 🔌 API Endpoints
 
-Full documentation: [`API_DOCUMENTATION.md`](./server/API_DOCUMENTATION.md)
+Full documentation: [`API_DOCUMENTATION.md`](./server/API_DOCUMENTATION.md) | [`SECURITY_DESIGN.md`](./SECURITY_DESIGN.md) | [`DEVELOPER_GUIDE.md`](./DEVELOPER_GUIDE.md)
 
 ### Authentication
 | Method | Endpoint | Description | Auth |

@@ -52,10 +52,29 @@ Documentation policy: whenever an endpoint, auth rule, input shape, or response 
 
 | Endpoint | Method | Auth | Input Format | Notes |
 |---|---|---|---|---|
-| `/audit/batch/:id` | `GET` | None | No body | Full lifecycle history of a batch. |
-| `/audit/company/:id` | `GET` | None | No body | Returns `{ company, history }` object. |
-| `/audit/company/me` | `GET` | Authenticated | No body | Returns `{ company, history }` for self. |
-| `/audit/company/stats` | `GET` | Authenticated | No body | High-level performance stats for the current user. |
+| `GET` | `/audit/batch/:id` | None | No body | Full lifecycle history of a batch. |
+| `GET` | `/audit/company/:id` | None | No body | Returns `{ company, history: AuditLog[] }`. |
+| `GET` | `/audit/company/me` | `JWT` | No body | Returns transaction history for the authenticated user. |
+| `GET` | `/audit/company/stats` | `JWT` | No body | Performance metrics (Producer vs Buyer specific stats). |
+
+## Integrity & Security (Admin Only)
+
+| Endpoint | Method | Role | Input Format | Notes |
+|---|---|---|---|---|
+| `/admin/integrity/check` | `GET` | `ADMIN` | No body | Triggers a scan to find mismatches between DB and Blockchain. |
+| `/admin/integrity/mismatches` | `GET` | `ADMIN` | No body | Returns a list of detected integrity violations. |
+| `/admin/integrity/revert/:id` | `POST` | `ADMIN` | No body | Attempts to sync DB back to the blockchain "Gold Standard". |
+
+## Audit Log Payload Reference
+
+The `AuditLog` model uses a `payload` JSON field. Common shapes:
+
+- **SALE**: `{ buyerId, sellerId, amount, listingId }`
+- **RETIREMENT**: `{ buyerId, amount, purpose }`
+- **APPROVAL**: `{ approvedQuantity, onChainBatchId, metadataHash, adjusted }`
+- **SUBMISSION**: `{ quantity, location, producerId }`
+- **MINTING**: `{ quantity, metadataHash }`
+- **SECURITY_LOCK**: `{ reason, wasOnChain }`
 
 
 ## On-chain vs DB Behavior
