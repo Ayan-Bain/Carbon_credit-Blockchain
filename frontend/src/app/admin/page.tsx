@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SideNavigation from '@/components/SideNavigation';
-import StatCard from '@/components/StatCard';
 import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
-import { ShieldAlert, Users, CheckCircle, XCircle, Search, ExternalLink, ShieldCheck, Globe, TrendingUp, AlertCircle } from 'lucide-react';
+import { ShieldAlert, Users, CheckCircle, Search, ExternalLink, ShieldCheck, Globe, TrendingUp, AlertCircle } from 'lucide-react';
 
 const navItems = [
   { label: 'Admin Panel', href: '/admin', icon: '🛡️', active: true },

@@ -39,30 +39,32 @@ export const generateHistoryPDF = (
     let amount = 'N/A';
     let project = 'Registry Project';
     
-    switch(event.type) {
-      case 'CREDITS_PURCHASED':
+    switch(event.action) {
+      case 'SALE':
         type = 'PURCHASE';
-        amount = `${(event.details?.unitsPurchased || 0).toLocaleString()} MT`;
-        project = event.details?.seller?.name || 'Carbon Project';
+        amount = `${(event.payload?.amount || 0).toLocaleString()} MT`;
+        project = event.batch?.producer?.name || 'Carbon Project';
         break;
-      case 'CREDITS_RETIRED':
+      case 'RETIREMENT':
         type = 'RETIREMENT';
-        amount = `${(event.details?.unitsRetired || 0).toLocaleString()} MT`;
-        project = event.details?.producer?.name || 'Carbon Project';
+        amount = `${(event.payload?.amount || 0).toLocaleString()} MT`;
+        project = event.batch?.producer?.name || 'Carbon Project';
         break;
-      case 'CREDITS_SUBMITTED':
+      case 'SUBMISSION':
         type = 'SUBMISSION';
-        amount = `${(event.details?.quantity || 0).toLocaleString()} MT`;
+        amount = `${(event.payload?.quantity || 0).toLocaleString()} MT`;
+        project = event.batch?.producer?.name || 'Carbon Project';
         break;
-      case 'CREDITS_VERIFIED':
+      case 'APPROVAL':
         type = 'VERIFICATION';
-        amount = `${(event.details?.quantity || 0).toLocaleString()} MT`;
+        amount = `${(event.payload?.quantity || 0).toLocaleString()} MT`;
+        project = event.batch?.producer?.name || 'Carbon Project';
         break;
       default:
-        type = event.type.replace('CREDITS_', '').replace('_', ' ');
+        type = event.action.replace('CREDITS_', '').replace('_', ' ');
     }
 
-    const date = new Date(event.at).toLocaleDateString('en-US', {
+    const date = new Date(event.createdAt).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -73,7 +75,7 @@ export const generateHistoryPDF = (
       project,
       type,
       amount,
-      event.details?.onChainTxHash ? `${event.details.onChainTxHash.slice(0, 10)}...` : 'REGISTERED'
+      event.txHash ? `${event.txHash.slice(0, 10)}...` : 'REGISTERED'
     ];
   });
 

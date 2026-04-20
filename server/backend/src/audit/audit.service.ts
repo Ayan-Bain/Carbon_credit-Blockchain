@@ -98,17 +98,47 @@ export class AuditService {
   }
 
   async getCompanyStats(companyId: string) {
-    const batches = await this.prisma.creditBatch.findMany({
-      where: { producerId: companyId },
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { role: true }
     });
 
-    return {
-      totalBatches: batches.length,
-      totalCredits: batches.reduce((acc, b) => acc + b.quantity, 0),
-      verifiedCredits: batches
-        .filter(b => b.status === BatchStatus.VERIFIED)
-        .reduce((acc, b) => acc + b.quantity, 0),
-    };
+    if (company?.role === CompanyRole.PRODUCER) {
+      const batches = await this.prisma.creditBatch.findMany({
+        where: { producerId: companyId },
+      });
+
+      return {
+        totalBatches: batches.length,
+        totalCredits: batches.reduce((acc, b) => acc + b.quantity, 0),
+        verifiedCredits: batches
+          .filter(b => b.status === BatchStatus.VERIFIED)
+          .reduce((acc, b) => acc + b.quantity, 0),
+      };
+    } else {
+      // Buyer/Minter/Admin Statistics
+      const [purchased, retired] = await Promise.all([
+        this.prisma.transaction.aggregate({
+          where: { buyerId: companyId, status: 'CONFIRMED' },
+          _sum: { unitsPurchased: true }
+        }),
+        this.prisma.retirementRecord.aggregate({
+          where: { buyerId: companyId },
+          _sum: { unitsRetired: true }
+        })
+      ]);
+
+      const unitsPurchased = purchased._sum.unitsPurchased || 0;
+      const unitsRetired = retired._sum.unitsRetired || 0;
+      const activeBalance = unitsPurchased - unitsRetired;
+
+      return {
+        totalCredits: activeBalance,
+        lifetimeOffset: unitsRetired,
+        portfolioValue: activeBalance * 27.53, // Match BuyerDashboard's exchange rate
+        quarterlyGrowth: "+12.4%" // Mocked for demonstration
+      };
+    }
   }
 
   async getCompanyHistory(companyId: string) {
@@ -118,16 +148,35 @@ export class AuditService {
 
     if (!company) return null;
 
-    const history = await this.prisma.auditLog.findMany({
+    const logs = await this.prisma.auditLog.findMany({
       where: {
-        batch: {
-          producerId: companyId
-        }
+        OR: [
+          { batch: { producerId: companyId } },
+          { batch: { retirements: { some: { buyerId: companyId } } } },
+          { batch: { listings: { some: { transactions: { some: { buyerId: companyId, status: 'CONFIRMED' } } } } } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        batch: true
+        batch: {
+          include: {
+            producer: true
+          }
+        }
       }
+    });
+
+    // Apply privacy filtering
+    const history = logs.filter(log => {
+        const payload = log.payload as any;
+        // 1. If you are the producer of the batch, you can see all lifecycle events
+        if (log.batch.producerId === companyId) return true;
+
+        // 2. Publicly verifiable events for anyone who owns part of the batch
+        if (['SUBMISSION', 'APPROVAL', 'MINTING', 'SECURITY_LOCK'].includes(log.action)) return true;
+
+        // 3. Private events (SALE, RETIREMENT) only visible to involved parties
+        return payload.buyerId === companyId || payload.sellerId === companyId;
     });
 
     return { company, history };

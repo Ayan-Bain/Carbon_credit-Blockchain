@@ -78,32 +78,30 @@ export default function BuyerDashboard() {
 
       // Extract retired holdings from history too
       const retiredHoldings = historyRes.data.history
-        .filter((h: any) => h.type === 'CREDITS_RETIRED')
+        .filter((h: any) => h.action === 'RETIREMENT')
         .map((h: any) => ({
-          id: h.details.batchId,
-          projectName: h.details.producer?.name || 'Carbon Project',
-          batchId: h.details.onChainBatchId ? `#${h.details.onChainBatchId}` : 'No Chain ID',
-          amount: h.details.unitsRetired,
+          id: h.batchId,
+          projectName: h.batch?.producer?.name || 'Carbon Project',
+          batchId: h.batch?.onChainBatchId ? `#${h.batch.onChainBatchId}` : 'No Chain ID',
+          amount: h.payload.amount,
           status: 'RETIRED',
         }));
 
       // Process recent activity from company history
       const activityData = historyRes.data.history
-        .filter((h: any) => h.type === 'CREDITS_PURCHASED' || h.type === 'CREDITS_RETIRED')
+        .filter((h: any) => h.action === 'SALE' || h.action === 'RETIREMENT')
         .map((h: any) => {
-          const type = h.type === 'CREDITS_PURCHASED' ? 'PURCHASE' : 'RETIRED';
+          const type = h.action === 'SALE' ? 'PURCHASE' : 'RETIRED';
           return {
-            id: h.details.transactionId || h.details.retirementId || Math.random().toString(),
+            id: h.txHash || Math.random().toString(),
             type,
-            projectName: type === 'PURCHASE' 
-              ? h.details.seller?.name || 'Carbon Project'
-              : h.details.producer?.name || 'Carbon Project',
-            date: new Date(h.at).toLocaleDateString('en-US', {
+            projectName: h.batch?.producer?.name || 'Carbon Project',
+            date: new Date(h.createdAt).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'short',
               day: 'numeric',
             }),
-            amount: type === 'PURCHASE' ? h.details.unitsPurchased : h.details.unitsRetired,
+            amount: h.payload.amount,
           };
         })
         .reverse();
